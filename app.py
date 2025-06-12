@@ -83,7 +83,7 @@ def init_database():
                 rol='admin',
                 area='Administración'
             )
-            admin.set_password('admin123')
+            admin.set_password(os.environ.get('ADMIN_PASSWORD', 'admin123'))
             db.session.add(admin)
 
             # Crear ubicación por defecto
