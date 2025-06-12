@@ -1,10 +1,8 @@
 import base64
 import os
 import tempfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from io import BytesIO
-# Agregar import necesario al inicio del archivo
-from datetime import timedelta
 
 import qrcode
 from flask import Flask, render_template, redirect, url_for, flash, request, send_file, jsonify, make_response
@@ -18,7 +16,7 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 
 # Configuración de la aplicación
 app = Flask(__name__)
-from datetime import datetime
+
 
 # Hacer datetime disponible en todos los templates
 @app.context_processor
@@ -29,6 +27,7 @@ def inject_datetime():
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'clave-super-secreta-feedbit-2024!')
 
 # Configuración de base de datos para Railway
+
 # 🔧 CONFIGURACIÓN PARA RAILWAY Y POSTGRESQL
 if os.environ.get('RAILWAY_ENVIRONMENT'):
     DATABASE_URL = os.environ.get('DATABASE_URL')
@@ -46,9 +45,29 @@ else:
     # Desarrollo local - SQLite
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///inventario.db'
 
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['UPLOAD_FOLDER'] = 'static/uploads'
-app.config['QR_FOLDER'] = 'static/qr_codes'
+# 🔧 CONFIGURACIÓN MEJORADA PARA RAILWAY Y POSTGRESQL
+def configurar_database():
+    """Configurar base de datos según el entorno"""
+    if os.environ.get('RAILWAY_ENVIRONMENT'):
+        # RAILWAY - PostgreSQL
+        DATABASE_URL = os.environ.get('DATABASE_URL')
+        if DATABASE_URL:
+            # Corregir URL si es necesario
+            if DATABASE_URL.startswith('postgres://'):
+                DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+            app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+            app.config['ADMIN_PASSWORD'] = os.environ.get('ADMIN_PASSWORD', 'Feedbit2024!')
+            print(f"🚀 MODO RAILWAY DETECTADO")
+            print(f"📊 DATABASE_URL configurado: {'✅' if DATABASE_URL else '❌'}")
+        else:
+            print("❌ ERROR: DATABASE_URL no encontrada en Railway")
+            raise Exception("DATABASE_URL no configurada en Railway")
+    else:
+        # DESARROLLO LOCAL - SQLite
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///inventario.db'
+        app.config['ADMIN_PASSWORD'] = 'admin123'
+        print("🏠 MODO DESARROLLO LOCAL - SQLite")
+
 
 # Crear carpetas si no existen
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -277,276 +296,319 @@ def generar_pdf_prestamo(prestamo):
 
 # Crear tablas y usuario admin
 def init_database():
-        with app.app_context():
+    """Inicializar base de datos con manejo de errores robusto"""
+    with app.app_context():
+        try:
+            print("🔄 Iniciando configuración de base de datos...")
+
+            # PASO 1: Crear todas las tablas
+            print("📋 Creando tablas...")
+            db.create_all()
+            print("✅ Tablas creadas correctamente")
+
+            # PASO 2: Verificar si ya hay datos
             try:
-                # Intentar crear todas las tablas
-                db.create_all()
-                print("✅ Tablas creadas/verificadas")
-
-                # Verificar si ya hay usuarios
-                if Usuario.query.first():
-                    print("✅ Base de datos ya tiene datos")
-                    return
-
-                print("🔄 Inicializando datos por defecto...")
-
-                # Resto de tu código existente de init_database()...
-                # (todo lo que tienes después de db.create_all())
-
+                usuario_admin = Usuario.query.filter_by(username='admin').first()
+                if usuario_admin:
+                    print("✅ Base de datos ya tiene datos - Usuario admin existe")
+                    return True
             except Exception as e:
-                print(f"❌ Error en base de datos: {e}")
-                # En Railway, reintentamos la conexión
-                try:
-                    print("🔄 Reintentando inicialización...")
-                    db.session.rollback()
-                    db.create_all()
-                    print("✅ Segundo intento exitoso")
-                except Exception as e2:
-                    print(f"❌ Error crítico: {e2}")
-                    # No fallar completamente, dejar que Railway maneje
-                    pass
+                print(f"⚠️ Error verificando usuarios existentes: {e}")
+                # Continuar con la inicialización
 
-        # Crear usuario admin si no existe
-        if not Usuario.query.filter_by(username='admin').first():
-            admin = Usuario(
-                username='admin',
-                nombre='Administrador',
-                email='admin@feedbit.net',
-                rol='admin',
-                area='Administración',
-                area_trabajo='Todas',
-                puede_prestar_todas_areas=True
-            )
-            admin.set_password(ADMIN_PASSWORD)
-            db.session.add(admin)
+            print("🔄 Inicializando datos por defecto...")
 
-            # Crear ubicaciones para los 3 almacenes
-            if not Ubicacion.query.first():
-                ubicaciones = [
-                    Ubicacion(nombre='Almacén Compras',
-                              descripcion='Almacén de utensilios generales y herramientas básicas',
-                              responsable='Área de Compras'),
-                    Ubicacion(nombre='Almacén Calidad e Higiene',
-                              descripcion='Almacén de instrumentos de control y medición',
-                              responsable='Calidad e Higiene'),
-                    Ubicacion(nombre='Almacén Equipo Especial',
-                              descripcion='Almacén de maquinaria y herramientas especializadas',
-                              responsable='Equipo Especial'),
-                    Ubicacion(nombre='Almacén General', descripcion='Equipos compartidos entre almacenes',
-                              responsable='Administración')
+            # PASO 3: Crear usuario admin
+            try:
+                admin = Usuario(
+                    username='admin',
+                    nombre='Administrador Sistema',
+                    email='admin@feedbit.net',
+                    rol='admin',
+                    area='Administración',
+                    area_trabajo='Todas',
+                    puede_prestar_todas_areas=True
+                )
+                admin.set_password(app.config.get('ADMIN_PASSWORD', 'admin123'))
+                db.session.add(admin)
+                print("✅ Usuario admin creado")
+            except Exception as e:
+                print(f"❌ Error creando admin: {e}")
+                db.session.rollback()
+
+            # PASO 4: Crear ubicaciones para los 3 almacenes
+            try:
+                if not Ubicacion.query.first():
+                    ubicaciones = [
+                        Ubicacion(nombre='Almacén Compras',
+                                  descripcion='Almacén de utensilios generales y herramientas básicas',
+                                  responsable='Área de Compras'),
+                        Ubicacion(nombre='Almacén Calidad e Higiene',
+                                  descripcion='Almacén de instrumentos de control y medición',
+                                  responsable='Calidad e Higiene'),
+                        Ubicacion(nombre='Almacén Equipo Especial',
+                                  descripcion='Almacén de maquinaria y herramientas especializadas',
+                                  responsable='Equipo Especial'),
+                        Ubicacion(nombre='Almacén General',
+                                  descripcion='Equipos compartidos entre almacenes',
+                                  responsable='Administración')
+                    ]
+                    for u in ubicaciones:
+                        db.session.add(u)
+                    print("✅ Ubicaciones creadas")
+            except Exception as e:
+                print(f"❌ Error creando ubicaciones: {e}")
+                db.session.rollback()
+
+            # PASO 5: Crear categorías específicas para cada almacén
+            try:
+                categorias_por_almacen = [
+                    # ALMACÉN COMPRAS
+                    ('Utensilios Básicos', 'Cucharas, espátulas, pinzas, batidores manuales'),
+                    ('Cuchillos y Herramientas de Corte', 'Cuchillos básicos, peladores, cortadores'),
+                    ('Contenedores y Recipientes', 'Bowls, recipientes, bandejas, contenedores'),
+                    ('Equipo de Medición Básico', 'Tazas medidoras, básculas básicas, jarras'),
+                    ('Herramientas de Preparación', 'Coladores, ralladores, prensas, abridores'),
+
+                    # ALMACÉN CALIDAD E HIGIENE
+                    ('Instrumentos de Medición', 'Termómetros, medidores de pH, higrómetros'),
+                    ('Balanzas de Precisión', 'Básculas digitales de alta precisión'),
+                    ('Equipo de Muestreo', 'Herramientas para toma de muestras y análisis'),
+                    ('Equipo de Limpieza Especializada', 'Materiales y herramientas de higiene industrial'),
+                    ('Instrumentos de Control', 'Equipos de verificación y calibración'),
+
+                    # ALMACÉN EQUIPO ESPECIAL
+                    ('Maquinaria Menor', 'Batidoras industriales, procesadores, licuadoras'),
+                    ('Herramientas Especializadas', 'Mandolinas profesionales, cortadoras eléctricas'),
+                    ('Equipo Electrónico', 'Equipos con componentes electrónicos especiales'),
+                    ('Equipo de Vacío y Sellado', 'Selladoras al vacío, bombas, equipos de empaque'),
+                    ('Maquinaria de Repostería', 'Batidoras planetarias, amasadoras, laminadoras')
                 ]
-                for u in ubicaciones:
-                    db.session.add(u)
 
-            # Crear categorías específicas para cada almacén
-            categorias_por_almacen = [
-                # ALMACÉN COMPRAS
-                ('Utensilios Básicos', 'Cucharas, espátulas, pinzas, batidores manuales'),
-                ('Cuchillos y Herramientas de Corte', 'Cuchillos básicos, peladores, cortadores'),
-                ('Contenedores y Recipientes', 'Bowls, recipientes, bandejas, contenedores'),
-                ('Equipo de Medición Básico', 'Tazas medidoras, básculas básicas, jarras'),
-                ('Herramientas de Preparación', 'Coladores, ralladores, prensas, abridores'),
+                for nombre, desc in categorias_por_almacen:
+                    if not Categoria.query.filter_by(nombre=nombre).first():
+                        categoria = Categoria(nombre=nombre, descripcion=desc)
+                        db.session.add(categoria)
 
-                # ALMACÉN CALIDAD E HIGIENE
-                ('Instrumentos de Medición', 'Termómetros, medidores de pH, higrómetros'),
-                ('Balanzas de Precisión', 'Básculas digitales de alta precisión'),
-                ('Equipo de Muestreo', 'Herramientas para toma de muestras y análisis'),
-                ('Equipo de Limpieza Especializada', 'Materiales y herramientas de higiene industrial'),
-                ('Instrumentos de Control', 'Equipos de verificación y calibración'),
+                print("✅ Categorías creadas")
+            except Exception as e:
+                print(f"❌ Error creando categorías: {e}")
+                db.session.rollback()
 
-                # ALMACÉN EQUIPO ESPECIAL
-                ('Maquinaria Menor', 'Batidoras industriales, procesadores, licuadoras'),
-                ('Herramientas Especializadas', 'Mandolinas profesionales, cortadoras eléctricas'),
-                ('Equipo Electrónico', 'Equipos con componentes electrónicos especiales'),
-                ('Equipo de Vacío y Sellado', 'Selladoras al vacío, bombas, equipos de empaque'),
-                ('Maquinaria de Repostería', 'Batidoras planetarias, amasadoras, laminadoras')
-            ]
+            # PASO 6: Guardar cambios principales
+            try:
+                db.session.commit()
+                print("✅ Datos básicos guardados")
+            except Exception as e:
+                print(f"❌ Error guardando datos básicos: {e}")
+                db.session.rollback()
+                return False
 
-            for nombre, desc in categorias_por_almacen:
-                if not Categoria.query.filter_by(nombre=nombre).first():
-                    categoria = Categoria(nombre=nombre, descripcion=desc)
-                    db.session.add(categoria)
+            # PASO 7: Crear usuarios para los 3 almacenes
+            try:
+                usuarios_almacenes = [
+                    {
+                        'username': 'almacen_compras',
+                        'nombre': 'Responsable Almacén Compras',
+                        'email': 'compras@feedbit.net',
+                        'area_trabajo': 'Almacén Compras',
+                        'area': 'Compras',
+                        'rol': 'usuario'
+                    },
+                    {
+                        'username': 'almacen_calidad',
+                        'nombre': 'Responsable Almacén Calidad',
+                        'email': 'calidad@feedbit.net',
+                        'area_trabajo': 'Almacén Calidad e Higiene',
+                        'area': 'Calidad e Higiene',
+                        'rol': 'usuario'
+                    },
+                    {
+                        'username': 'almacen_especial',
+                        'nombre': 'Responsable Almacén Especial',
+                        'email': 'especial@feedbit.net',
+                        'area_trabajo': 'Almacén Equipo Especial',
+                        'area': 'Equipo Especial',
+                        'rol': 'usuario'
+                    },
+                    {
+                        'username': 'supervisor',
+                        'nombre': 'Supervisor General',
+                        'email': 'supervisor@feedbit.net',
+                        'area_trabajo': 'Supervisión',
+                        'area': 'Supervisión',
+                        'rol': 'supervisor',
+                        'puede_prestar_todas_areas': True
+                    }
+                ]
 
-            db.session.commit()
-
-            # Crear usuarios para los 3 almacenes
-            usuarios_almacenes = [
-                {
-                    'username': 'almacen_compras',
-                    'nombre': 'Responsable Almacén Compras',
-                    'email': 'compras@feedbit.net',
-                    'area_trabajo': 'Almacén Compras',
-                    'area': 'Compras',
-                    'rol': 'usuario'
-                },
-                {
-                    'username': 'almacen_calidad',
-                    'nombre': 'Responsable Almacén Calidad',
-                    'email': 'calidad@feedbit.net',
-                    'area_trabajo': 'Almacén Calidad e Higiene',
-                    'area': 'Calidad e Higiene',
-                    'rol': 'usuario'
-                },
-                {
-                    'username': 'almacen_especial',
-                    'nombre': 'Responsable Almacén Especial',
-                    'email': 'especial@feedbit.net',
-                    'area_trabajo': 'Almacén Equipo Especial',
-                    'area': 'Equipo Especial',
-                    'rol': 'usuario'
-                },
-                {
-                    'username': 'supervisor',
-                    'nombre': 'Supervisor General',
-                    'email': 'supervisor@feedbit.net',
-                    'area_trabajo': 'Supervisión',
-                    'area': 'Supervisión',
-                    'rol': 'supervisor',
-                    'puede_prestar_todas_areas': True
-                }
-            ]
-
-            for user_data in usuarios_almacenes:
-                if not Usuario.query.filter_by(username=user_data['username']).first():
-                    user = Usuario(
-                        username=user_data['username'],
-                        nombre=user_data['nombre'],
-                        email=user_data['email'],
-                        area=user_data['area'],
-                        area_trabajo=user_data['area_trabajo'],
-                        rol=user_data['rol'],
-                        puede_prestar_todas_areas=user_data.get('puede_prestar_todas_areas', False)
-                    )
-                    user.set_password('123456')  # Contraseña temporal
-                    db.session.add(user)
-
-            db.session.commit()
-
-            # Crear equipos de ejemplo para cada almacén
-            equipos_ejemplo = [
-                # ALMACÉN COMPRAS - Utensilios generales
-                {
-                    'codigo': 'COMP-CUCH-001',
-                    'nombre': 'Cuchillo Chef 8"',
-                    'descripcion': 'Cuchillo básico para preparación general',
-                    'categoria': 'Cuchillos y Herramientas de Corte',
-                    'ubicacion': 'Almacén Compras',
-                    'cantidad_total': 15,
-                    'cantidad_minima': 5
-                },
-                {
-                    'codigo': 'COMP-ESP-001',
-                    'nombre': 'Set Espátulas de Silicón',
-                    'descripcion': 'Juego de 3 espátulas resistentes al calor',
-                    'categoria': 'Utensilios Básicos',
-                    'ubicacion': 'Almacén Compras',
-                    'cantidad_total': 12,
-                    'cantidad_minima': 3
-                },
-                {
-                    'codigo': 'COMP-BOWL-001',
-                    'nombre': 'Bowls de Acero Inoxidable',
-                    'descripcion': 'Set de bowls de diferentes tamaños',
-                    'categoria': 'Contenedores y Recipientes',
-                    'ubicacion': 'Almacén Compras',
-                    'cantidad_total': 20,
-                    'cantidad_minima': 6
-                },
-                {
-                    'codigo': 'COMP-TABLA-001',
-                    'nombre': 'Tabla de Corte Plástica',
-                    'descripcion': 'Tabla de corte color blanco para uso general',
-                    'categoria': 'Cuchillos y Herramientas de Corte',
-                    'ubicacion': 'Almacén Compras',
-                    'cantidad_total': 25,
-                    'cantidad_minima': 8
-                },
-
-                # ALMACÉN CALIDAD E HIGIENE - Instrumentos de control
-                {
-                    'codigo': 'CAL-TERM-001',
-                    'nombre': 'Termómetro Digital Infrarrojo',
-                    'descripcion': 'Termómetro sin contacto para control de temperatura',
-                    'categoria': 'Instrumentos de Medición',
-                    'ubicacion': 'Almacén Calidad e Higiene',
-                    'cantidad_total': 6,
-                    'cantidad_minima': 2
-                },
-                {
-                    'codigo': 'CAL-BAL-001',
-                    'nombre': 'Balanza Digital 5kg',
-                    'descripcion': 'Balanza de precisión 0.1g para control de calidad',
-                    'categoria': 'Balanzas de Precisión',
-                    'ubicacion': 'Almacén Calidad e Higiene',
-                    'cantidad_total': 4,
-                    'cantidad_minima': 1
-                },
-                {
-                    'codigo': 'CAL-PH-001',
-                    'nombre': 'Medidor de pH Digital',
-                    'descripcion': 'pHmetro digital para control de acidez',
-                    'categoria': 'Instrumentos de Medición',
-                    'ubicacion': 'Almacén Calidad e Higiene',
-                    'cantidad_total': 3,
-                    'cantidad_minima': 1
-                },
-
-                # ALMACÉN EQUIPO ESPECIAL - Maquinaria especializada
-                {
-                    'codigo': 'ESP-BAT-001',
-                    'nombre': 'Batidora Planetaria 20L',
-                    'descripcion': 'Batidora industrial para grandes volúmenes',
-                    'categoria': 'Maquinaria de Repostería',
-                    'ubicacion': 'Almacén Equipo Especial',
-                    'cantidad_total': 2,
-                    'cantidad_minima': 1
-                },
-                {
-                    'codigo': 'ESP-MAN-001',
-                    'nombre': 'Mandolina Profesional',
-                    'descripcion': 'Cortadora profesional con múltiples cuchillas',
-                    'categoria': 'Herramientas Especializadas',
-                    'ubicacion': 'Almacén Equipo Especial',
-                    'cantidad_total': 3,
-                    'cantidad_minima': 1
-                },
-                {
-                    'codigo': 'ESP-VAC-001',
-                    'nombre': 'Selladora al Vacío Profesional',
-                    'descripcion': 'Máquina selladora al vacío para conservación',
-                    'categoria': 'Equipo de Vacío y Sellado',
-                    'ubicacion': 'Almacén Equipo Especial',
-                    'cantidad_total': 2,
-                    'cantidad_minima': 1
-                }
-            ]
-
-            for equipo_data in equipos_ejemplo:
-                if not TipoEquipo.query.filter_by(codigo=equipo_data['codigo']).first():
-                    categoria = Categoria.query.filter_by(nombre=equipo_data['categoria']).first()
-                    ubicacion = Ubicacion.query.filter_by(nombre=equipo_data['ubicacion']).first()
-
-                    if categoria and ubicacion:
-                        nuevo_equipo = TipoEquipo(
-                            codigo=equipo_data['codigo'],
-                            nombre=equipo_data['nombre'],
-                            descripcion=equipo_data['descripcion'],
-                            categoria_id=categoria.id,
-                            ubicacion_id=ubicacion.id,
-                            cantidad_total=equipo_data['cantidad_total'],
-                            cantidad_minima=equipo_data['cantidad_minima']
+                for user_data in usuarios_almacenes:
+                    if not Usuario.query.filter_by(username=user_data['username']).first():
+                        user = Usuario(
+                            username=user_data['username'],
+                            nombre=user_data['nombre'],
+                            email=user_data['email'],
+                            area=user_data['area'],
+                            area_trabajo=user_data['area_trabajo'],
+                            rol=user_data['rol'],
+                            puede_prestar_todas_areas=user_data.get('puede_prestar_todas_areas', False)
                         )
+                        user.set_password('123456')  # Contraseña temporal
+                        db.session.add(user)
 
-                        db.session.add(nuevo_equipo)
-                        db.session.commit()
+                db.session.commit()
+                print("✅ Usuarios de almacenes creados")
+            except Exception as e:
+                print(f"❌ Error creando usuarios de almacenes: {e}")
+                db.session.rollback()
 
-                        # Generar QR
-                        qr_data = f"EQUIPO:{nuevo_equipo.id}:{nuevo_equipo.codigo}"
-                        nuevo_equipo.codigo_qr = generar_qr(qr_data)
+            # PASO 8: Crear equipos de ejemplo para cada almacén
+            try:
+                equipos_ejemplo = [
+                    # ALMACÉN COMPRAS - Utensilios generales
+                    {
+                        'codigo': 'COMP-CUCH-001',
+                        'nombre': 'Cuchillo Chef 8"',
+                        'descripcion': 'Cuchillo básico para preparación general',
+                        'categoria': 'Cuchillos y Herramientas de Corte',
+                        'ubicacion': 'Almacén Compras',
+                        'cantidad_total': 15,
+                        'cantidad_minima': 5
+                    },
+                    {
+                        'codigo': 'COMP-ESP-001',
+                        'nombre': 'Set Espátulas de Silicón',
+                        'descripcion': 'Juego de 3 espátulas resistentes al calor',
+                        'categoria': 'Utensilios Básicos',
+                        'ubicacion': 'Almacén Compras',
+                        'cantidad_total': 12,
+                        'cantidad_minima': 3
+                    },
+                    {
+                        'codigo': 'COMP-BOWL-001',
+                        'nombre': 'Bowls de Acero Inoxidable',
+                        'descripcion': 'Set de bowls de diferentes tamaños',
+                        'categoria': 'Contenedores y Recipientes',
+                        'ubicacion': 'Almacén Compras',
+                        'cantidad_total': 20,
+                        'cantidad_minima': 6
+                    },
+                    {
+                        'codigo': 'COMP-TABLA-001',
+                        'nombre': 'Tabla de Corte Plástica',
+                        'descripcion': 'Tabla de corte color blanco para uso general',
+                        'categoria': 'Cuchillos y Herramientas de Corte',
+                        'ubicacion': 'Almacén Compras',
+                        'cantidad_total': 25,
+                        'cantidad_minima': 8
+                    },
 
-                        db.session.commit()
+                    # ALMACÉN CALIDAD E HIGIENE - Instrumentos de control
+                    {
+                        'codigo': 'CAL-TERM-001',
+                        'nombre': 'Termómetro Digital Infrarrojo',
+                        'descripcion': 'Termómetro sin contacto para control de temperatura',
+                        'categoria': 'Instrumentos de Medición',
+                        'ubicacion': 'Almacén Calidad e Higiene',
+                        'cantidad_total': 6,
+                        'cantidad_minima': 2
+                    },
+                    {
+                        'codigo': 'CAL-BAL-001',
+                        'nombre': 'Balanza Digital 5kg',
+                        'descripcion': 'Balanza de precisión 0.1g para control de calidad',
+                        'categoria': 'Balanzas de Precisión',
+                        'ubicacion': 'Almacén Calidad e Higiene',
+                        'cantidad_total': 4,
+                        'cantidad_minima': 1
+                    },
+                    {
+                        'codigo': 'CAL-PH-001',
+                        'nombre': 'Medidor de pH Digital',
+                        'descripcion': 'pHmetro digital para control de acidez',
+                        'categoria': 'Instrumentos de Medición',
+                        'ubicacion': 'Almacén Calidad e Higiene',
+                        'cantidad_total': 3,
+                        'cantidad_minima': 1
+                    },
 
-            print("Base de datos inicializada con 3 almacenes, 7 áreas operativas y 10 equipos de ejemplo!")
+                    # ALMACÉN EQUIPO ESPECIAL - Maquinaria especializada
+                    {
+                        'codigo': 'ESP-BAT-001',
+                        'nombre': 'Batidora Planetaria 20L',
+                        'descripcion': 'Batidora industrial para grandes volúmenes',
+                        'categoria': 'Maquinaria de Repostería',
+                        'ubicacion': 'Almacén Equipo Especial',
+                        'cantidad_total': 2,
+                        'cantidad_minima': 1
+                    },
+                    {
+                        'codigo': 'ESP-MAN-001',
+                        'nombre': 'Mandolina Profesional',
+                        'descripcion': 'Cortadora profesional con múltiples cuchillas',
+                        'categoria': 'Herramientas Especializadas',
+                        'ubicacion': 'Almacén Equipo Especial',
+                        'cantidad_total': 3,
+                        'cantidad_minima': 1
+                    },
+                    {
+                        'codigo': 'ESP-VAC-001',
+                        'nombre': 'Selladora al Vacío Profesional',
+                        'descripcion': 'Máquina selladora al vacío para conservación',
+                        'categoria': 'Equipo de Vacío y Sellado',
+                        'ubicacion': 'Almacén Equipo Especial',
+                        'cantidad_total': 2,
+                        'cantidad_minima': 1
+                    }
+                ]
+
+                for equipo_data in equipos_ejemplo:
+                    if not TipoEquipo.query.filter_by(codigo=equipo_data['codigo']).first():
+                        categoria = Categoria.query.filter_by(nombre=equipo_data['categoria']).first()
+                        ubicacion = Ubicacion.query.filter_by(nombre=equipo_data['ubicacion']).first()
+
+                        if categoria and ubicacion:
+                            nuevo_equipo = TipoEquipo(
+                                codigo=equipo_data['codigo'],
+                                nombre=equipo_data['nombre'],
+                                descripcion=equipo_data['descripcion'],
+                                categoria_id=categoria.id,
+                                ubicacion_id=ubicacion.id,
+                                cantidad_total=equipo_data['cantidad_total'],
+                                cantidad_minima=equipo_data['cantidad_minima']
+                            )
+
+                            db.session.add(nuevo_equipo)
+                            db.session.commit()
+
+                            # Generar QR
+                            qr_data = f"EQUIPO:{nuevo_equipo.id}:{nuevo_equipo.codigo}"
+                            nuevo_equipo.codigo_qr = generar_qr(qr_data)
+                            db.session.commit()
+
+                print("✅ Equipos de ejemplo creados")
+            except Exception as e:
+                print(f"❌ Error creando equipos de ejemplo: {e}")
+                db.session.rollback()
+
+            # PASO FINAL: Confirmar todo
+            try:
+                db.session.commit()
+                print("🎉 ¡Base de datos inicializada completamente!")
+                print(f"👤 Usuario admin creado - Contraseña: {app.config.get('ADMIN_PASSWORD', 'admin123')}")
+                return True
+            except Exception as e:
+                print(f"❌ Error en commit final: {e}")
+                db.session.rollback()
+                return False
+
+        except Exception as e:
+            print(f"❌ ERROR CRÍTICO inicializando base de datos: {e}")
+            try:
+                db.session.rollback()
+            except:
+                pass
+            return False
 
 
 # Rutas de autenticación
@@ -1942,19 +2004,87 @@ def init_database_endpoint():
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }), 500
+
+
+# 🆕 ENDPOINT PARA FORZAR INICIALIZACIÓN (útil para Railway)
+@app.route('/force-init-db')
+def force_init_database():
+    """Endpoint para forzar inicialización de base de datos"""
+    try:
+        print("🔄 Forzando inicialización de base de datos...")
+        resultado = init_database()
+
+        if resultado:
+            return jsonify({
+                'status': 'success',
+                'message': 'Base de datos inicializada correctamente',
+                'timestamp': datetime.now().isoformat(),
+                'admin_password': app.config.get('ADMIN_PASSWORD', 'No configurada')
+            }), 200
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'Error inicializando base de datos',
+                'timestamp': datetime.now().isoformat()
+            }), 500
+
+    except Exception as e:
+        print(f"❌ ERROR en force_init_database: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+
+# 🔧 ENDPOINT DE SALUD PARA RAILWAY
+@app.route('/health')
+def health_check():
+    """Health check para Railway"""
+    try:
+        # Verificar conexión a base de datos
+        db.session.execute('SELECT 1')
+
+        # Verificar si existe el usuario admin
+        admin_exists = Usuario.query.filter_by(username='admin').first() is not None
+
+        return jsonify({
+            'status': 'healthy',
+            'database': 'connected',
+            'admin_user': 'exists' if admin_exists else 'missing',
+            'timestamp': datetime.now().isoformat()
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
 if __name__ == '__main__':
-    # Inicializar la base de datos
-    init_database()
+    # 🚀 INICIALIZACIÓN MEJORADA PARA RAILWAY
+    print("🌟 Iniciando aplicación Sistema de Inventario Feedbit...")
 
-    # Configuración optimizada para Railway
+    try:
+        # Intentar inicializar base de datos
+        init_result = init_database()
+        if init_result:
+            print("✅ Base de datos lista")
+        else:
+            print("⚠️ Problemas con inicialización, pero continuando...")
+    except Exception as e:
+        print(f"⚠️ Error en inicialización: {e}")
+        print("🔄 La aplicación continuará, puedes usar /force-init-db")
+
+    # Configuración del servidor
     port = int(os.environ.get('PORT', 5000))
-    debug_mode = os.environ.get('FLASK_ENV', 'development') == 'development'
+    debug_mode = os.environ.get('FLASK_ENV', 'production') != 'production'
 
-    # Solo ejecutar Flask directamente en desarrollo
-    # En producción, gunicorn se encarga del servidor
     if debug_mode:
+        print(f"🛠️ MODO DESARROLLO - Puerto {port}")
         app.run(host='0.0.0.0', port=port, debug=True)
     else:
-        # En producción, Railway usa gunicorn
-        print(f"🚀 Aplicación lista para Railway en puerto {port}")
+        print(f"🚀 MODO PRODUCCIÓN - Puerto {port}")
+        print(f"🔑 Usuario admin: admin / Contraseña: {app.config.get('ADMIN_PASSWORD')}")
         app.run(host='0.0.0.0', port=port, debug=False)
