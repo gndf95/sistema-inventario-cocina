@@ -6,6 +6,8 @@ import os
 import qrcode
 from io import BytesIO
 import base64
+import pandas as pd
+import io
 
 
 # Configuración de la aplicación
@@ -492,6 +494,299 @@ def verificar_disponibilidad(id):
     })
 
 
+# Función para descargar plantilla de Excel
+@app.route('/equipos/plantilla-excel')
+@login_required
+def descargar_plantilla_excel():
+    """Descarga la plantilla de Excel para importar equipos"""
+
+    # Crear un DataFrame con las columnas necesarias
+    df = pd.DataFrame(columns=[
+        'codigo',
+        'nombre',
+        'descripcion',
+        'categoria',
+        'ubicacion',
+        'cantidad_total',
+        'cantidad_minima',
+        'fecha_adquisicion',
+        'observaciones'
+    ])
+
+    # Agregar algunos ejemplos
+    ejemplos = pd.DataFrame([
+        {
+            'codigo': 'SART-28',
+            'nombre': 'Sartén 28cm',
+            'descripcion': 'Sartén antiadherente de 28cm diámetro',
+            'categoria': 'Ollas y Sartenes',
+            'ubicacion': 'Almacén Principal',
+            'cantidad_total': 10,
+            'cantidad_minima': 3,
+            'fecha_adquisicion': '2024-01-15',
+            'observaciones': 'Marca XYZ'
+        },
+        {
+            'codigo': 'CUCH-CHEF-10',
+            'nombre': 'Cuchillo Chef 10"',
+            'descripcion': 'Cuchillo de chef profesional 10 pulgadas',
+            'categoria': 'Equipo de Corte',
+            'ubicacion': 'Cocina Principal',
+            'cantidad_total': 5,
+            'cantidad_minima': 2,
+            'fecha_adquisicion': '2024-02-20',
+            'observaciones': 'Acero inoxidable'
+        }
+    ])
+
+    df = pd.concat([df, ejemplos], ignore_index=True)
+
+    # Crear el archivo Excel
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        # Hoja principal con ejemplos
+        df.to_excel(writer, sheet_name='Equipos', index=False)
+
+        # Hoja de instrucciones
+        instrucciones = pd.DataFrame({
+            'Instrucciones': [
+                '1. Complete los datos en la hoja "Equipos"',
+                '2. El código debe ser único para cada tipo de equipo',
+                '3. Las categorías deben coincidir exactamente con las del sistema',
+                '4. Las ubicaciones deben coincidir exactamente con las del sistema',
+                '5. Las cantidades deben ser números enteros',
+                '6. La fecha debe estar en formato YYYY-MM-DD',
+                '7. Puede dejar vacías las columnas de descripción y observaciones',
+                '8. Elimine las filas de ejemplo antes de importar'
+            ]
+        })
+        instrucciones.to_excel(writer, sheet_name='Instrucciones', index=False)
+
+        # Hoja con categorías válidas
+        categorias = Categoria.query.all()
+        df_categorias = pd.DataFrame({
+            'Categorías Válidas': [cat.nombre for cat in categorias]
+        })
+        df_categorias.to_excel(writer, sheet_name='Categorias_Validas', index=False)
+
+        # Hoja con ubicaciones válidas
+        ubicaciones = Ubicacion.query.all()
+        df_ubicaciones = pd.DataFrame({
+            'Ubicaciones Válidas': [ub.nombre for ub in ubicaciones]
+        })
+        df_ubicaciones.to_excel(writer, sheet_name='Ubicaciones_Validas', index=False)
+
+        # Formatear el Excel
+        workbook = writer.book
+        worksheet = writer.sheets['Equipos']
+
+        # Formato para encabezados
+        header_format = workbook.add_format({
+            'bold': True,
+            'bg_color': '#4472C4',
+            'font_color': 'white',
+            'border': 1
+        })
+
+        # Aplicar formato a encabezados
+        for col_num, value in enumerate(df.columns.values):
+            worksheet.write(0, col_num, value, header_format)
+            worksheet.set_column(col_num, col_num, 20)
+
+    output.seek(0)
+
+    return send_file(
+        output,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name='plantilla_importar_equipos.xlsx'
+    )
+
+
+@app.route('/equipos/importar', methods=['GET', 'POST'])
+@login_required
+def importar_equipos():
+    """Importar equipos desde Excel"""
+
+    if request.method == 'POST':
+        if 'archivo' not in request.files:
+            flash('No se seleccionó ningún archivo', 'danger')
+            return redirect(request.url)
+
+        archivo = request.files['archivo']
+
+        if archivo.filename == '':
+            flash('No se seleccionó ningún archivo', 'danger')
+            return redirect(request.url)
+
+        if archivo and archivo.filename.endswith(('.xlsx', '.xls')):
+            try:
+                # Leer el archivo Excel
+                df = pd.read_excel(archivo, sheet_name='Equipos')
+
+                # Validar columnas requeridas
+                columnas_requeridas = ['codigo', 'nombre', 'categoria', 'ubicacion',
+                                       'cantidad_total', 'cantidad_minima']
+
+                for col in columnas_requeridas:
+                    if col not in df.columns:
+                        flash(f'Falta la columna requerida: {col}', 'danger')
+                        return redirect(request.url)
+
+                # Procesar cada fila
+                equipos_creados = 0
+                equipos_actualizados = 0
+                errores = []
+
+                for index, row in df.iterrows():
+                    try:
+                        # Verificar si el código ya existe
+                        equipo_existente = TipoEquipo.query.filter_by(
+                            codigo=str(row['codigo'])
+                        ).first()
+
+                        if equipo_existente:
+                            # Actualizar equipo existente
+                            equipo_existente.nombre = str(row['nombre'])
+                            equipo_existente.descripcion = str(row.get('descripcion', ''))
+                            equipo_existente.cantidad_total = int(row['cantidad_total'])
+                            equipo_existente.cantidad_minima = int(row['cantidad_minima'])
+
+                            if pd.notna(row.get('observaciones')):
+                                equipo_existente.observaciones = str(row['observaciones'])
+
+                            equipos_actualizados += 1
+                        else:
+                            # Buscar categoría y ubicación
+                            categoria = Categoria.query.filter_by(
+                                nombre=str(row['categoria'])
+                            ).first()
+
+                            ubicacion = Ubicacion.query.filter_by(
+                                nombre=str(row['ubicacion'])
+                            ).first()
+
+                            if not categoria:
+                                errores.append(f"Fila {index + 2}: Categoría '{row['categoria']}' no encontrada")
+                                continue
+
+                            if not ubicacion:
+                                errores.append(f"Fila {index + 2}: Ubicación '{row['ubicacion']}' no encontrada")
+                                continue
+
+                            # Crear nuevo equipo
+                            nuevo_equipo = TipoEquipo(
+                                codigo=str(row['codigo']),
+                                nombre=str(row['nombre']),
+                                descripcion=str(row.get('descripcion', '')),
+                                categoria_id=categoria.id,
+                                ubicacion_id=ubicacion.id,
+                                cantidad_total=int(row['cantidad_total']),
+                                cantidad_minima=int(row['cantidad_minima']),
+                                observaciones=str(row.get('observaciones', '')) if pd.notna(
+                                    row.get('observaciones')) else None
+                            )
+
+                            # Manejar fecha de adquisición si existe
+                            if pd.notna(row.get('fecha_adquisicion')):
+                                try:
+                                    nuevo_equipo.fecha_adquisicion = pd.to_datetime(row['fecha_adquisicion']).date()
+                                except:
+                                    pass
+
+                            db.session.add(nuevo_equipo)
+                            equipos_creados += 1
+
+                    except Exception as e:
+                        errores.append(f"Fila {index + 2}: {str(e)}")
+
+                # Guardar cambios
+                if equipos_creados > 0 or equipos_actualizados > 0:
+                    db.session.commit()
+
+                    # Generar códigos QR para los nuevos equipos
+                    nuevos_equipos = TipoEquipo.query.filter_by(codigo_qr=None).all()
+                    for equipo in nuevos_equipos:
+                        qr_data = f"EQUIPO:{equipo.id}:{equipo.codigo}"
+                        equipo.codigo_qr = generar_qr(qr_data)
+
+                    db.session.commit()
+
+                # Mostrar resultados
+                mensaje = f"Importación completada: {equipos_creados} equipos creados, {equipos_actualizados} actualizados"
+
+                if errores:
+                    mensaje += f". Errores: {len(errores)}"
+                    for error in errores[:5]:  # Mostrar máximo 5 errores
+                        flash(error, 'warning')
+
+                flash(mensaje, 'success' if not errores else 'warning')
+                return redirect(url_for('equipos'))
+
+            except Exception as e:
+                flash(f'Error al procesar el archivo: {str(e)}', 'danger')
+                return redirect(request.url)
+        else:
+            flash('Por favor sube un archivo Excel (.xlsx o .xls)', 'danger')
+            return redirect(request.url)
+
+    return render_template('equipos/importar.html')
+
+
+@app.route('/equipos/exportar')
+@login_required
+def exportar_equipos():
+    """Exportar todos los equipos a Excel"""
+
+    equipos = TipoEquipo.query.filter_by(activo=True).all()
+
+    data = []
+    for equipo in equipos:
+        data.append({
+            'codigo': equipo.codigo,
+            'nombre': equipo.nombre,
+            'descripcion': equipo.descripcion,
+            'categoria': equipo.categoria.nombre if equipo.categoria else '',
+            'ubicacion': equipo.ubicacion.nombre if equipo.ubicacion else '',
+            'cantidad_total': equipo.cantidad_total,
+            'cantidad_minima': equipo.cantidad_minima,
+            'cantidad_disponible': equipo.cantidad_disponible,
+            'cantidad_prestada': equipo.cantidad_prestada,
+            'fecha_adquisicion': equipo.fecha_adquisicion.strftime('%Y-%m-%d') if equipo.fecha_adquisicion else '',
+            'observaciones': equipo.observaciones or ''
+        })
+
+    df = pd.DataFrame(data)
+
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, sheet_name='Inventario_Actual', index=False)
+
+        # Formatear
+        workbook = writer.book
+        worksheet = writer.sheets['Inventario_Actual']
+
+        # Formato para encabezados
+        header_format = workbook.add_format({
+            'bold': True,
+            'bg_color': '#4472C4',
+            'font_color': 'white',
+            'border': 1
+        })
+
+        # Aplicar formato
+        for col_num, value in enumerate(df.columns.values):
+            worksheet.write(0, col_num, value, header_format)
+            worksheet.set_column(col_num, col_num, 20)
+
+    output.seek(0)
+
+    return send_file(
+        output,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=f'inventario_equipos_{datetime.now().strftime("%Y%m%d")}.xlsx'
+    )
 if __name__ == '__main__':
     # Inicializar la base de datos
     init_database()
