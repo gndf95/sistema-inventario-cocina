@@ -277,8 +277,33 @@ def generar_pdf_prestamo(prestamo):
 
 # Crear tablas y usuario admin
 def init_database():
-    with app.app_context():
-        db.create_all()
+        with app.app_context():
+            try:
+                # Intentar crear todas las tablas
+                db.create_all()
+                print("✅ Tablas creadas/verificadas")
+
+                # Verificar si ya hay usuarios
+                if Usuario.query.first():
+                    print("✅ Base de datos ya tiene datos")
+                    return
+
+                print("🔄 Inicializando datos por defecto...")
+
+                # Resto de tu código existente de init_database()...
+                # (todo lo que tienes después de db.create_all())
+
+            except Exception as e:
+                print(f"❌ Error en base de datos: {e}")
+                # En Railway, reintentamos la conexión
+                try:
+                    print("🔄 Reintentando inicialización...")
+                    db.session.rollback()
+                    db.create_all()
+                    print("✅ Segundo intento exitoso")
+                except Exception as e2:
+                    print(f"❌ Error crítico: {e2}")
+                    # No fallar completamente, dejar que Railway maneje
 
         # Crear usuario admin si no existe
         if not Usuario.query.filter_by(username='admin').first():
