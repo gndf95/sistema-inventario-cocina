@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+
+{% block title %}Préstamos - Sistema de Inventario{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <h1 class="h2">Préstamos</h1>
+        </div>
+        <div class="col-md-6 text-end">
+            <a href="{{ url_for('nuevo_prestamo') }}" class="btn btn-success">
+                <i class="fas fa-plus"></i> Nuevo Préstamo
+            </a>
+        </div>
+    </div>
+
+    <!-- Tabs para filtrar -->
+    <ul class="nav nav-tabs mb-3" id="prestamosTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="todos-tab" data-bs-toggle="tab" data-bs-target="#todos" type="button">
+                Todos
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="activos-tab" data-bs-toggle="tab" data-bs-target="#activos" type="button">
+                Activos <span class="badge bg-primary">{{ prestamos|selectattr('estado', 'equalto', 'activo')|list|length }}</span>
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="vencidos-tab" data-bs-toggle="tab" data-bs-target="#vencidos" type="button">
+                Vencidos <span class="badge bg-danger">{{ prestamos|selectattr('vencido')|list|length }}</span>
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="devueltos-tab" data-bs-toggle="tab" data-bs-target="#devueltos" type="button">
+                Devueltos
+            </button>
+        </li>
+    </ul>
+
+    <!-- Contenido de tabs -->
+    <div class="tab-content" id="prestamosTabContent">
+        <div class="tab-pane fade show active" id="todos" role="tabpanel">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Equipo</th>
+                            <th>Responsable</th>
+                            <th>Fecha Préstamo</th>
+                            <th>Fecha Devolución</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for prestamo in prestamos %}
+                        <tr class="prestamo-row" 
+                            data-estado="{{ prestamo.estado }}"
+                            data-vencido="{{ 'si' if prestamo.vencido else 'no' }}">
+                            <td>{{ prestamo.folio or prestamo.id }}</td>
+                            <td>
+                                {% for detalle in prestamo.detalles %}
+                                    <strong>{{ detalle.tipo_equipo.nombre }}</strong> (x{{ detalle.cantidad }})<br>
+                                    <small class="text-muted">{{ detalle.tipo_equipo.codigo }}</small>
+                                    {% if not loop.last %}<br>{% endif %}
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {{ prestamo.responsable_nombre }}<br>
+                                <small class="text-muted">{{ prestamo.responsable_area }}</small>
+                            </td>
+                            <td>{{ prestamo.fecha_prestamo.strftime('%d/%m/%Y %H:%M') }}</td>
+                            <td>
+                                {{ prestamo.fecha_devolucion_esperada.strftime('%d/%m/%Y') }}
+                                {% if prestamo.vencido %}
+                                <br><span class="badge bg-danger">Vencido</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if prestamo.estado == 'activo' %}
+                                    {% if prestamo.vencido %}
+                                        <span class="badge bg-danger">Vencido</span>
+                                    {% else %}
+                                        <span class="badge bg-warning">Activo</span>
+                                    {% endif %}
+                                {% elif prestamo.estado == 'parcial' %}
+                                    <span class="badge bg-info">Parcial</span>
+                                {% else %}
+                                    <span class="badge bg-success">Devuelto</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{{ url_for('ver_prestamo', id=prestamo.id) }}" 
+                                       class="btn btn-sm btn-primary" title="Ver detalles">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    {% if prestamo.estado == 'activo' %}
+                                    <button class="btn btn-sm btn-success" 
+                                            onclick="mostrarModalDevolucion({{ prestamo.id }}, '{{ prestamo.responsable_nombre }}')"
+                                            title="Registrar devolución">
+                                        <i class="fas fa-undo"></i>
+                                    </button>
+                                    {% endif %}
+                                    {% if prestamo.codigo_qr_prestamo %}
+                                    <button class="btn btn-sm btn-secondary" 
+                                            onclick="mostrarQR('{{ prestamo.codigo_qr_prestamo }}', 'Préstamo {{ prestamo.folio }}')"
+                                            title="Ver QR">
+                                        <i class="fas fa-qrcode"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para devolución -->
+<div class="modal fade" id="modalDevolucion" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" id="formDevolucion">
+                <div class="modal-header">
+                    <h5 class="modal-title">Registrar Devolución</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Equipo: <strong id="equipoDevolucion"></strong></p>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Estado del Equipo al Devolver *</label>
+                        <select class="form-select" name="estado_equipo" required>
+                            <option value="disponible">Buen estado - Disponible</option>
+                            <option value="mantenimiento">Requiere mantenimiento</option>
+                            <option value="baja">Dañado - Dar de baja</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Observaciones</label>
+                        <textarea class="form-control" name="observaciones" rows="3" 
+                                  placeholder="Condición del equipo, daños, etc."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Confirmar Devolución</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal QR -->
+<div class="modal fade" id="modalQR" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloQR">Código QR</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="imagenQR" class="img-fluid" style="max-width: 300px;">
+                <div class="mt-3">
+                    <button class="btn btn-primary" onclick="imprimirQR()">
+                        <i class="fas fa-print"></i> Imprimir
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Filtrar por tabs
+document.addEventListener('DOMContentLoaded', function() {
+    const tabs = document.querySelectorAll('button[data-bs-toggle="tab"]');
+    
+    tabs.forEach(tab => {
+        tab.addEventListener('shown.bs.tab', function(e) {
+            const targetId = e.target.getAttribute('id');
+            const rows = document.querySelectorAll('.prestamo-row');
+            
+            rows.forEach(row => {
+                const estado = row.getAttribute('data-estado');
+                const vencido = row.getAttribute('data-vencido');
+                
+                switch(targetId) {
+                    case 'todos-tab':
+                        row.style.display = '';
+                        break;
+                    case 'activos-tab':
+                        row.style.display = estado === 'activo' && vencido === 'no' ? '' : 'none';
+                        break;
+                    case 'vencidos-tab':
+                        row.style.display = vencido === 'si' ? '' : 'none';
+                        break;
+                    case 'devueltos-tab':
+                        row.style.display = estado === 'devuelto' ? '' : 'none';
+                        break;
+                    default:
+                        row.style.display = '';
+                }
+            });
+        });
+    });
+});
+
+// Modal de devolución
+function mostrarModalDevolucion(prestamoId, equipoNombre) {
+    document.getElementById('equipoDevolucion').textContent = equipoNombre;
+    const form = document.getElementById('formDevolucion');
+    form.action = `/prestamos/${prestamoId}/devolver`;
+    new bootstrap.Modal(document.getElementById('modalDevolucion')).show();
+}
+
+// Mostrar QR
+function mostrarQR(codigoQR, titulo) {
+    document.getElementById('tituloQR').textContent = titulo;
+    document.getElementById('imagenQR').src = 'data:image/png;base64,' + codigoQR;
+    new bootstrap.Modal(document.getElementById('modalQR')).show();
+}
+
+// Imprimir QR
+function imprimirQR() {
+    const imagen = document.getElementById('imagenQR').src;
+    const ventana = window.open('', '_blank');
+    ventana.document.write(`
+        <html>
+        <head><title>Imprimir QR</title></head>
+        <body style="text-align: center;">
+            <img src="${imagen}" style="max-width: 300px;">
+            <script>window.print();<\/script>
+        </body>
+        </html>
+    `);
+    ventana.document.close();
+}
+</script>
+{% endblock %}

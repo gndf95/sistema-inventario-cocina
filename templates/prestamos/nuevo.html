@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+
+{% block title %}Nuevo Préstamo - Sistema de Inventario{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-4">
+    <div class="row">
+        <div class="col-12 col-lg-8">
+            <h1 class="h3 h2-md mb-4">Registrar Nuevo Préstamo</h1>
+            
+            <form method="POST" id="formPrestamo">
+                <!-- Datos del Responsable -->
+                <div class="card mb-3">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">Datos del Responsable</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label for="responsable_nombre" class="form-label">Nombre Completo *</label>
+                                <input type="text" class="form-control" id="responsable_nombre" 
+                                       name="responsable_nombre" required>
+                            </div>
+                            
+                            <div class="col-12 col-md-6">
+                                <label for="responsable_area" class="form-label">Área/Departamento *</label>
+                                <input type="text" class="form-control" id="responsable_area" 
+                                       name="responsable_area" required>
+                            </div>
+                            
+                            <div class="col-12 col-md-6">
+                                <label for="responsable_telefono" class="form-label">Teléfono</label>
+                                <input type="tel" class="form-control" id="responsable_telefono" 
+                                       name="responsable_telefono" placeholder="10 dígitos">
+                            </div>
+                            
+                            <div class="col-12 col-md-6">
+                                <label for="fecha_devolucion" class="form-label">Fecha de Devolución *</label>
+                                <input type="date" class="form-control" id="fecha_devolucion" 
+                                       name="fecha_devolucion" required>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Motivo del préstamo -->
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label for="motivo" class="form-label">Motivo del Préstamo *</label>
+                                <select class="form-select" id="motivo" name="motivo" required>
+                                    <option value="">Seleccione un motivo</option>
+                                    <option value="evento">Evento especial</option>
+                                    <option value="catering">Servicio de catering</option>
+                                    <option value="produccion">Producción diaria</option>
+                                    <option value="reemplazo">Reemplazo por mantenimiento</option>
+                                    <option value="otro">Otro</option>
+                                </select>
+                            </div>
+                            
+                            <div class="col-12 col-md-6">
+                                <label for="evento" class="form-label">Evento/Descripción</label>
+                                <input type="text" class="form-control" id="evento" name="evento" 
+                                       placeholder="Ej: Boda García - 200 personas">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Selección de Equipos -->
+                <div class="card mb-3">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Equipos a Prestar</h5>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="agregarEquipo()">
+                            <i class="fas fa-plus"></i> Agregar
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="listaEquipos">
+                            <!-- Primera fila de equipo -->
+                            <div class="row g-2 mb-2 equipo-row">
+                                <div class="col-12 col-md-7">
+                                    <select class="form-select equipo-select" name="equipo_id[]" onchange="actualizarDisponibilidad(this)">
+                                        <option value="">Seleccione un equipo</option>
+                                        {% for equipo in equipos %}
+                                        <option value="{{ equipo.id }}" 
+                                                data-disponible="{{ equipo.cantidad_disponible }}"
+                                                data-codigo="{{ equipo.codigo }}">
+                                            {{ equipo.nombre }} ({{ equipo.codigo }}) - Disponible: {{ equipo.cantidad_disponible }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-8 col-md-3">
+                                    <input type="number" class="form-control cantidad-input" name="cantidad[]" 
+                                           placeholder="Cantidad" min="0" max="0" value="0">
+                                </div>
+                                <div class="col-4 col-md-2">
+                                    <button type="button" class="btn btn-danger w-100" onclick="quitarEquipo(this)" disabled>
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-info mt-3 mb-0">
+                            <i class="fas fa-info-circle"></i>
+                            Solo se muestran equipos con unidades disponibles
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Resumen del préstamo -->
+                <div class="card mb-3 d-none" id="resumenPrestamo">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="mb-0">Resumen del Préstamo</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="resumenContenido"></div>
+                    </div>
+                </div>
+
+                <!-- Botones de acción -->
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end mb-4">
+                    <a href="{{ url_for('prestamos') }}" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-success btn-lg">
+                        <i class="fas fa-check"></i> Registrar Préstamo
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Panel lateral de ayuda -->
+        <div class="col-12 col-lg-4 mt-4 mt-lg-0">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h5 class="card-title">Proceso de Préstamo</h5>
+                    <ol class="small ps-3">
+                        <li>Ingrese los datos del responsable</li>
+                        <li>Seleccione los equipos y cantidades</li>
+                        <li>Establezca la fecha de devolución</li>
+                        <li>Se generará un comprobante PDF</li>
+                        <li>Podrá imprimir el código QR</li>
+                    </ol>
+                    
+                    <div class="alert alert-warning mt-3">
+                        <strong>Importante:</strong> Verifique las cantidades disponibles antes de confirmar el préstamo.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Establecer fecha mínima (hoy)
+document.addEventListener('DOMContentLoaded', function() {
+    const hoy = new Date().toISOString().split('T')[0];
+    document.getElementById('fecha_devolucion').setAttribute('min', hoy);
+});
+
+// Plantilla para nueva fila de equipo
+function agregarEquipo() {
+    const container = document.getElementById('listaEquipos');
+    const primeraFila = container.querySelector('.equipo-row');
+    const nuevaFila = primeraFila.cloneNode(true);
+    
+    // Limpiar valores
+    nuevaFila.querySelector('select').value = '';
+    nuevaFila.querySelector('input[type="number"]').value = '0';
+    nuevaFila.querySelector('input[type="number"]').max = '0';
+    nuevaFila.querySelector('button').disabled = false;
+    
+    container.appendChild(nuevaFila);
+    actualizarResumen();
+}
+
+// Quitar fila de equipo
+function quitarEquipo(btn) {
+    btn.closest('.equipo-row').remove();
+    actualizarResumen();
+}
+
+// Actualizar disponibilidad cuando se selecciona un equipo
+function actualizarDisponibilidad(select) {
+    const row = select.closest('.equipo-row');
+    const cantidadInput = row.querySelector('.cantidad-input');
+    const selectedOption = select.options[select.selectedIndex];
+    
+    if (select.value) {
+        const disponible = parseInt(selectedOption.getAttribute('data-disponible'));
+        cantidadInput.max = disponible;
+        cantidadInput.min = 1;
+        if (cantidadInput.value == 0) cantidadInput.value = 1;
+    } else {
+        cantidadInput.max = 0;
+        cantidadInput.min = 0;
+        cantidadInput.value = 0;
+    }
+    
+    actualizarResumen();
+}
+
+// Actualizar resumen del préstamo
+function actualizarResumen() {
+    const rows = document.querySelectorAll('.equipo-row');
+    const resumenDiv = document.getElementById('resumenPrestamo');
+    const contenido = document.getElementById('resumenContenido');
+    
+    let items = [];
+    let totalItems = 0;
+    
+    rows.forEach(row => {
+        const select = row.querySelector('select');
+        const cantidad = parseInt(row.querySelector('input[type="number"]').value) || 0;
+        
+        if (select.value && cantidad > 0) {
+            const option = select.options[select.selectedIndex];
+            items.push({
+                nombre: option.text.split(' - ')[0],
+                cantidad: cantidad
+            });
+            totalItems += cantidad;
+        }
+    });
+    
+    if (items.length > 0) {
+        resumenDiv.classList.remove('d-none');
+        let html = '<ul class="mb-0">';
+        items.forEach(item => {
+            html += `<li>${item.cantidad} x ${item.nombre}</li>`;
+        });
+        html += '</ul>';
+        html += `<hr><strong>Total de items: ${totalItems}</strong>`;
+        contenido.innerHTML = html;
+    } else {
+        resumenDiv.classList.add('d-none');
+    }
+}
+
+// Validación antes de enviar
+document.getElementById('formPrestamo').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    // Verificar que hay al menos un equipo seleccionado
+    const equiposSeleccionados = Array.from(document.querySelectorAll('.equipo-select'))
+        .filter(s => s.value && parseInt(s.closest('.equipo-row').querySelector('.cantidad-input').value) > 0);
+    
+    if (equiposSeleccionados.length === 0) {
+        alert('Debe seleccionar al menos un equipo con cantidad mayor a 0');
+        return false;
+    }
+    
+    // Verificar fecha
+    const fecha = new Date(document.getElementById('fecha_devolucion').value);
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    
+    if (fecha < hoy) {
+        alert('La fecha de devolución no puede ser anterior a hoy');
+        return false;
+    }
+    
+    // Confirmación final
+    if (confirm('¿Confirma el registro de este préstamo?')) {
+        this.submit();
+    }
+});
+
+// Actualizar al cambiar cantidades
+document.addEventListener('input', function(e) {
+    if (e.target.classList.contains('cantidad-input')) {
+        actualizarResumen();
+    }
+});
+</script>
+{% endblock %}

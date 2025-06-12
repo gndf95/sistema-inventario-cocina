@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Importar Equipos - Sistema de Inventario{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-4">
+    <h1 class="h3 h2-md mb-4">Importar Equipos desde Excel</h1>
+    
+    <div class="row">
+        <div class="col-12 col-lg-8">
+            <!-- Instrucciones -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> Instrucciones</h5>
+                </div>
+                <div class="card-body">
+                    <ol>
+                        <li>Descarga la plantilla de Excel haciendo clic en el botón azul</li>
+                        <li>Completa los datos de tus equipos en la hoja "Equipos"</li>
+                        <li>Revisa las hojas de "Categorías Válidas" y "Ubicaciones Válidas"</li>
+                        <li>Guarda el archivo y súbelo usando el formulario</li>
+                        <li>El sistema creará los equipos nuevos y actualizará los existentes</li>
+                    </ol>
+                    
+                    <div class="alert alert-warning mt-3">
+                        <strong>Importante:</strong>
+                        <ul class="mb-0">
+                            <li>El código debe ser único para cada equipo</li>
+                            <li>Las categorías y ubicaciones deben existir en el sistema</li>
+                            <li>Si un código ya existe, se actualizará la información</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulario de carga -->
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-upload"></i> Cargar Archivo</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="archivo" class="form-label">Seleccionar archivo Excel</label>
+                            <input type="file" class="form-control" id="archivo" name="archivo" 
+                                   accept=".xlsx,.xls" required>
+                            <small class="text-muted">Formatos aceptados: .xlsx, .xls</small>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ url_for('equipos') }}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-file-import"></i> Importar Equipos
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-12 col-lg-4 mt-4 mt-lg-0">
+            <!-- Panel de descarga -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="mb-0">Plantilla de Excel</h6>
+                </div>
+                <div class="card-body text-center">
+                    <i class="fas fa-file-excel fa-4x text-success mb-3"></i>
+                    <p>Descarga la plantilla con el formato correcto y ejemplos</p>
+                    <a href="{{ url_for('descargar_plantilla_excel') }}" class="btn btn-primary">
+                        <i class="fas fa-download"></i> Descargar Plantilla
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Información de campos -->
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">Campos de la Plantilla</h6>
+                </div>
+                <div class="card-body small">
+                    <dl class="row mb-0">
+                        <dt class="col-5">código*</dt>
+                        <dd class="col-7">Identificador único</dd>
+                        
+                        <dt class="col-5">nombre*</dt>
+                        <dd class="col-7">Nombre del equipo</dd>
+                        
+                        <dt class="col-5">descripción</dt>
+                        <dd class="col-7">Detalles del equipo</dd>
+                        
+                        <dt class="col-5">categoría*</dt>
+                        <dd class="col-7">Debe existir en el sistema</dd>
+                        
+                        <dt class="col-5">ubicación*</dt>
+                        <dd class="col-7">Debe existir en el sistema</dd>
+                        
+                        <dt class="col-5">cantidad_total*</dt>
+                        <dd class="col-7">Número entero</dd>
+                        
+                        <dt class="col-5">cantidad_minima*</dt>
+                        <dd class="col-7">Para alertas</dd>
+                        
+                        <dt class="col-5">fecha_adquisicion</dt>
+                        <dd class="col-7">YYYY-MM-DD</dd>
+                        
+                        <dt class="col-5">observaciones</dt>
+                        <dd class="col-7">Notas adicionales</dd>
+                    </dl>
+                    <p class="text-muted mb-0 mt-2">* Campos obligatorios</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

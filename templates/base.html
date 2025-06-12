@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Sistema de Inventario{% endblock %}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- CSS Responsivo -->
+    <style>
+        :root {
+            --sidebar-width: 250px;
+        }
+        
+        body {
+            font-size: 0.9rem;
+        }
+        
+        /* Sidebar para escritorio */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 100;
+            padding: 0;
+            width: var(--sidebar-width);
+            background-color: #343a40;
+            transition: transform 0.3s ease-in-out;
+        }
+        
+        .sidebar-sticky {
+            position: sticky;
+            top: 0;
+            height: calc(100vh - 48px);
+            padding-top: 0.5rem;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+        
+        .sidebar .nav-link {
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 0;
+        }
+        
+        .sidebar .nav-link:hover {
+            background-color: #495057;
+        }
+        
+        .sidebar .nav-link.active {
+            background-color: #007bff;
+        }
+        
+        .sidebar .nav-link i {
+            width: 20px;
+            margin-right: 10px;
+        }
+        
+        /* Contenido principal */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        /* Navbar móvil */
+        .navbar-mobile {
+            display: none;
+            position: fixed;
+            top: 0;
+            right: 0;
+            left: 0;
+            z-index: 1030;
+            background-color: #343a40;
+        }
+        
+        /* Overlay para móvil */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 99;
+        }
+        
+        /* Estilos responsivos */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.show {
+                transform: translateX(0);
+            }
+            
+            .sidebar-overlay.show {
+                display: block;
+            }
+            
+            .main-content {
+                margin-left: 0;
+                padding: 70px 10px 20px 10px;
+            }
+            
+            .navbar-mobile {
+                display: block;
+            }
+            
+            /* Hacer tablas responsivas */
+            .table-responsive {
+                font-size: 0.875rem;
+            }
+            
+            /* Botones más grandes en móvil */
+            .btn {
+                padding: 0.5rem 1rem;
+            }
+            
+            /* Cards más compactas */
+            .card-body {
+                padding: 1rem;
+            }
+        }
+        
+        /* Utilidades adicionales */
+        .qr-code {
+            max-width: 200px;
+            height: auto;
+        }
+        
+        .estado-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+        }
+        
+        /* Mejorar clics en móvil */
+        @media (hover: none) {
+            .btn, .nav-link, .list-group-item-action {
+                -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+            }
+        }
+        
+        /* Tabla responsiva mejorada */
+        @media (max-width: 576px) {
+            .table-sm td, .table-sm th {
+                padding: 0.5rem 0.25rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar para móvil -->
+    <nav class="navbar navbar-dark navbar-mobile">
+        <div class="container-fluid">
+            <button class="navbar-toggler" type="button" id="sidebarToggle">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <span class="navbar-brand">Sistema de Inventario</span>
+            <div class="text-white small">{{ current_user.nombre }}</div>
+        </div>
+    </nav>
+
+    <!-- Overlay para cerrar sidebar en móvil -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Sidebar -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-sticky">
+            <div class="text-center py-3 d-none d-md-block">
+                <h5 class="text-white mb-1">Sistema de Inventario</h5>
+                <p class="text-white-50 small mb-0">{{ current_user.nombre }}</p>
+            </div>
+            
+            <ul class="nav flex-column">
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">
+                        <i class="fas fa-home"></i> Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if 'equipo' in request.endpoint %}active{% endif %}" href="{{ url_for('equipos') }}">
+                        <i class="fas fa-utensils"></i> Equipos
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if 'prestamo' in request.endpoint %}active{% endif %}" href="{{ url_for('prestamos') }}">
+                        <i class="fas fa-hand-holding"></i> Préstamos
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if 'reporte' in request.endpoint %}active{% endif %}" href="{{ url_for('reportes') }}">
+                        <i class="fas fa-chart-bar"></i> Reportes
+                    </a>
+                </li>
+                {% if current_user.rol == 'admin' %}
+                <li class="nav-item">
+                    <a class="nav-link {% if 'configuracion' in request.endpoint %}active{% endif %}" href="{{ url_for('configuracion') }}">
+                        <i class="fas fa-cog"></i> Configuración
+                    </a>
+                </li>
+                {% endif %}
+                <li class="nav-item mt-3 border-top pt-3">
+                    <a class="nav-link text-danger" href="{{ url_for('logout') }}">
+                        <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Contenido principal -->
+    <main class="main-content">
+        <!-- Mensajes Flash -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <!-- Script para sidebar móvil -->
+    <script>
+        // Toggle sidebar en móvil
+        document.getElementById('sidebarToggle').addEventListener('click', function() {
+            document.getElementById('sidebar').classList.toggle('show');
+            document.getElementById('sidebarOverlay').classList.toggle('show');
+        });
+        
+        // Cerrar sidebar al hacer clic en overlay
+        document.getElementById('sidebarOverlay').addEventListener('click', function() {
+            document.getElementById('sidebar').classList.remove('show');
+            this.classList.remove('show');
+        });
+        
+        // Cerrar sidebar al hacer clic en un enlace (móvil)
+        if (window.innerWidth <= 768) {
+            document.querySelectorAll('.sidebar .nav-link').forEach(function(link) {
+                link.addEventListener('click', function() {
+                    document.getElementById('sidebar').classList.remove('show');
+                    document.getElementById('sidebarOverlay').classList.remove('show');
+                });
+            });
+        }
+    </script>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

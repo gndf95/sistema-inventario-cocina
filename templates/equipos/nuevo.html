@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}Nuevo Equipo - Sistema de Inventario{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8">
+            <h1 class="h2 mb-4">Agregar Nuevo Equipo</h1>
+            
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST" enctype="multipart/form-data">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="codigo_interno" class="form-label">Código Interno *</label>
+                                <input type="text" class="form-control" id="codigo_interno" name="codigo" required>
+                                <small class="text-muted">Código único para identificar el equipo</small>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="nombre" class="form-label">Nombre del Equipo *</label>
+                                <input type="text" class="form-control" id="nombre" name="nombre" required>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="descripcion" class="form-label">Descripción</label>
+                            <textarea class="form-control" id="descripcion" name="descripcion" rows="3"></textarea>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="categoria_id" class="form-label">Categoría *</label>
+                                <select class="form-select" id="categoria_id" name="categoria_id" required>
+                                    <option value="">Seleccione una categoría</option>
+                                    {% for categoria in categorias %}
+                                    <option value="{{ categoria.id }}">{{ categoria.nombre }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="ubicacion_id" class="form-label">Ubicación Inicial *</label>
+                                <select class="form-select" id="ubicacion_id" name="ubicacion_id" required>
+                                    <option value="">Seleccione una ubicación</option>
+                                    {% for ubicacion in ubicaciones %}
+                                    <option value="{{ ubicacion.id }}">{{ ubicacion.nombre }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="cantidad_total" class="form-label">Cantidad Total *</label>
+                                <input type="number" class="form-control" id="cantidad_total" name="cantidad_total" 
+                                       min="1" value="1" required>
+                                <small class="text-muted">¿Cuántas unidades tienes de este equipo?</small>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="cantidad_minima" class="form-label">Cantidad Mínima *</label>
+                                <input type="number" class="form-control" id="cantidad_minima" name="cantidad_minima" 
+                                       min="1" value="1" required>
+                                <small class="text-muted">Alerta cuando queden menos de esta cantidad</small>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="fecha_adquisicion" class="form-label">Fecha de Adquisición</label>
+                                <input type="date" class="form-control" id="fecha_adquisicion" name="fecha_adquisicion">
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="foto" class="form-label">Foto del Equipo</label>
+                                <input type="file" class="form-control" id="foto" name="foto" accept="image/*">
+                                <small class="text-muted">Formatos: JPG, PNG, GIF</small>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="observaciones" class="form-label">Observaciones</label>
+                            <textarea class="form-control" id="observaciones" name="observaciones" rows="2"></textarea>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ url_for('equipos') }}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Guardar Equipo
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h5 class="card-title">Información</h5>
+                    <ul class="small">
+                        <li>Los campos marcados con * son obligatorios</li>
+                        <li>El código interno debe ser único</li>
+                        <li>Se generará automáticamente un código QR para este equipo</li>
+                        <li>La foto ayuda a identificar rápidamente el equipo</li>
+                        <li>Puedes agregar más categorías y ubicaciones desde Configuración</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Validación del formulario
+document.querySelector('form').addEventListener('submit', function(e) {
+    const codigo = document.getElementById('codigo_interno').value.trim();
+    
+    // Validar que el código no tenga espacios
+    if (codigo.includes(' ')) {
+        e.preventDefault();
+        alert('El código interno no puede contener espacios');
+        return false;
+    }
+});
+
+// Preview de la imagen
+document.getElementById('foto').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file && file.type.startsWith('image/')) {
+        // Aquí podrías agregar un preview de la imagen
+        console.log('Imagen seleccionada:', file.name);
+    }
+});
+</script>
+{% endblock %}

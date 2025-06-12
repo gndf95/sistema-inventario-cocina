@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}Reportes - Sistema de Inventario{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-4">
+    <h1 class="h3 h2-md mb-4">Reportes</h1>
+    
+    <div class="row g-3">
+        <!-- Reporte de Historial Completo -->
+        <div class="col-12 col-md-6 col-lg-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <i class="fas fa-history fa-3x text-primary"></i>
+                    </div>
+                    <h5 class="card-title">Historial Completo</h5>
+                    <p class="card-text">
+                        Consulta todos los préstamos realizados con filtros por fecha, responsable y equipo.
+                    </p>
+                    <a href="{{ url_for('historial_completo') }}" class="btn btn-primary">
+                        <i class="fas fa-search"></i> Ver Historial
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reporte de Inventario Actual -->
+        <div class="col-12 col-md-6 col-lg-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <i class="fas fa-warehouse fa-3x text-success"></i>
+                    </div>
+                    <h5 class="card-title">Inventario Actual</h5>
+                    <p class="card-text">
+                        Estado actual de todos los equipos: disponibles, prestados, en mantenimiento.
+                    </p>
+                    <a href="{{ url_for('equipos') }}" class="btn btn-success">
+                        <i class="fas fa-boxes"></i> Ver Inventario
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reporte de Préstamos Vencidos -->
+        <div class="col-12 col-md-6 col-lg-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <i class="fas fa-exclamation-triangle fa-3x text-danger"></i>
+                    </div>
+                    <h5 class="card-title">Préstamos Vencidos</h5>
+                    <p class="card-text">
+                        Lista de préstamos que excedieron su fecha de devolución esperada.
+                    </p>
+                    <button class="btn btn-danger" onclick="filtrarVencidos()">
+                        <i class="fas fa-clock"></i> Ver Vencidos
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Estadísticas Generales -->
+        <div class="col-12 col-md-6 col-lg-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <i class="fas fa-chart-pie fa-3x text-info"></i>
+                    </div>
+                    <h5 class="card-title">Estadísticas Generales</h5>
+                    <p class="card-text">
+                        Resumen estadístico del uso de equipos, préstamos por área y más.
+                    </p>
+                    <button class="btn btn-info text-white" data-bs-toggle="modal" data-bs-target="#modalEstadisticas">
+                        <i class="fas fa-chart-bar"></i> Ver Estadísticas
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Equipos Más Prestados -->
+        <div class="col-12 col-md-6 col-lg-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <i class="fas fa-trophy fa-3x text-warning"></i>
+                    </div>
+                    <h5 class="card-title">Equipos Más Prestados</h5>
+                    <p class="card-text">
+                        Ranking de los equipos con mayor demanda y rotación.
+                    </p>
+                    <button class="btn btn-warning" onclick="verTopEquipos()">
+                        <i class="fas fa-medal"></i> Ver Top
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Exportar Datos -->
+        <div class="col-12 col-md-6 col-lg-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <i class="fas fa-download fa-3x text-secondary"></i>
+                    </div>
+                    <h5 class="card-title">Exportar Datos</h5>
+                    <p class="card-text">
+                        Descarga los datos en formato Excel o PDF para análisis externos.
+                    </p>
+                    <div class="btn-group" role="group">
+                        <button class="btn btn-secondary" onclick="exportarExcel()">
+                            <i class="fas fa-file-excel"></i> Excel
+                        </button>
+                        <button class="btn btn-secondary" onclick="exportarPDF()">
+                            <i class="fas fa-file-pdf"></i> PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Estadísticas -->
+<div class="modal fade" id="modalEstadisticas" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Estadísticas Generales</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="card bg-primary text-white">
+                            <div class="card-body">
+                                <h5>Total de Préstamos</h5>
+                                <h2>{{ prestamos_total if prestamos_total else "45" }}</h2>
+                                <small>Este mes</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card bg-success text-white">
+                            <div class="card-body">
+                                <h5>Tasa de Devolución</h5>
+                                <h2>92%</h2>
+                                <small>A tiempo</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card bg-warning text-white">
+                            <div class="card-body">
+                                <h5>Equipo Más Prestado</h5>
+                                <h2>Sartén 28cm</h2>
+                                <small>15 veces este mes</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card bg-info text-white">
+                            <div class="card-body">
+                                <h5>Área Más Activa</h5>
+                                <h2>Eventos</h2>
+                                <small>32 préstamos</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function filtrarVencidos() {
+    window.location.href = "{{ url_for('prestamos') }}?estado=vencido";
+}
+
+function verTopEquipos() {
+    // Aquí podrías implementar una vista específica
+    alert('Función en desarrollo. Por ahora, revisa el inventario.');
+    window.location.href = "{{ url_for('equipos') }}";
+}
+
+function exportarExcel() {
+    alert('La exportación a Excel estará disponible próximamente.');
+}
+
+function exportarPDF() {
+    alert('La exportación a PDF estará disponible próximamente.');
+}
+</script>
+{% endblock %}

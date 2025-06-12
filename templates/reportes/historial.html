@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}Historial Completo - Sistema de Inventario{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-4">
+    <h1 class="h3 h2-md mb-4">Historial Completo de Préstamos</h1>
+    
+    <!-- Filtros de búsqueda -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-12 col-md-3">
+                    <label class="form-label">Fecha Inicio</label>
+                    <input type="date" class="form-control" name="fecha_inicio" 
+                           value="{{ request.args.get('fecha_inicio', '') }}">
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label">Fecha Fin</label>
+                    <input type="date" class="form-control" name="fecha_fin"
+                           value="{{ request.args.get('fecha_fin', '') }}">
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label">Responsable</label>
+                    <input type="text" class="form-control" name="responsable" 
+                           placeholder="Nombre del responsable"
+                           value="{{ request.args.get('responsable', '') }}">
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label">Equipo</label>
+                    <select class="form-select" name="equipo_id">
+                        <option value="">Todos los equipos</option>
+                        {% for equipo in equipos %}
+                        <option value="{{ equipo.id }}" 
+                            {% if request.args.get('equipo_id') == equipo.id|string %}selected{% endif %}>
+                            {{ equipo.nombre }} ({{ equipo.codigo }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search"></i> Buscar
+                    </button>
+                    <a href="{{ url_for('historial_completo') }}" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Limpiar
+                    </a>
+                    <button type="button" class="btn btn-success" onclick="exportarExcel()">
+                        <i class="fas fa-file-excel"></i> Exportar Excel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Estadísticas del período -->
+    <div class="row mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card text-white bg-info">
+                <div class="card-body p-3">
+                    <h6 class="card-title">Total Préstamos</h6>
+                    <h3>{{ prestamos|length }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card text-white bg-success">
+                <div class="card-body p-3">
+                    <h6 class="card-title">Devueltos a Tiempo</h6>
+                    <h3>{{ prestamos|selectattr('estado', 'equalto', 'devuelto')|list|length }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card text-white bg-warning">
+                <div class="card-body p-3">
+                    <h6 class="card-title">En Curso</h6>
+                    <h3>{{ prestamos|selectattr('estado', 'equalto', 'activo')|list|length }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card text-white bg-danger">
+                <div class="card-body p-3">
+                    <h6 class="card-title">Vencidos</h6>
+                    <h3>{{ prestamos|selectattr('vencido')|list|length }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de historial -->
+    <div class="table-responsive">
+        <table class="table table-hover table-sm" id="tablaHistorial">
+            <thead>
+                <tr>
+                    <th>Folio</th>
+                    <th>Fecha</th>
+                    <th>Responsable</th>
+                    <th class="d-none d-md-table-cell">Área</th>
+                    <th>Equipos</th>
+                    <th>Estado</th>
+                    <th>Duración</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for prestamo in prestamos %}
+                <tr>
+                    <td>{{ prestamo.folio }}</td>
+                    <td>
+                        {{ prestamo.fecha_prestamo.strftime('%d/%m/%Y') }}
+                        <br><small class="text-muted">{{ prestamo.fecha_prestamo.strftime('%H:%M') }}</small>
+                    </td>
+                    <td>{{ prestamo.responsable_nombre }}</td>
+                    <td class="d-none d-md-table-cell">{{ prestamo.responsable_area }}</td>
+                    <td>
+                        <button class="btn btn-sm btn-link p-0" onclick="verDetalleEquipos({{ prestamo.id }})">
+                            {{ prestamo.total_items }} items
+                        </button>
+                        <!-- Lista oculta de equipos -->
+                        <div id="equipos-{{ prestamo.id }}" style="display: none;">
+                            <ul class="small mb-0">
+                                {% for detalle in prestamo.detalles %}
+                                <li>{{ detalle.cantidad }} x {{ detalle.tipo_equipo.nombre }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </td>
+                    <td>
+                        {% if prestamo.estado == 'devuelto' %}
+                            <span class="badge bg-success">Devuelto</span>
+                        {% elif prestamo.estado == 'parcial' %}
+                            <span class="badge bg-warning">Parcial</span>
+                        {% elif prestamo.vencido %}
+                            <span class="badge bg-danger">Vencido</span>
+                        {% else %}
+                            <span class="badge bg-info">Activo</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ prestamo.dias_prestamo }} días</td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <a href="{{ url_for('ver_prestamo', id=prestamo.id) }}" 
+                               class="btn btn-primary" title="Ver detalles">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{{ url_for('descargar_pdf_prestamo', id=prestamo.id) }}" 
+                               class="btn btn-secondary" title="Descargar PDF">
+                                <i class="fas fa-file-pdf"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal para ver equipos -->
+<div class="modal fade" id="modalEquipos" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalle de Equipos</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modalEquiposContent">
+                <!-- Contenido dinámico -->
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Ver detalle de equipos en modal
+function verDetalleEquipos(prestamoId) {
+    const contenido = document.getElementById('equipos-' + prestamoId).innerHTML;
+    document.getElementById('modalEquiposContent').innerHTML = contenido;
+    new bootstrap.Modal(document.getElementById('modalEquipos')).show();
+}
+
+// Exportar a Excel (simulado - necesitarías implementar en el backend)
+function exportarExcel() {
+    const params = new URLSearchParams(window.location.search);
+    window.location.href = '/reportes/historial/excel?' + params.toString();
+}
+
+// Ordenar tabla
+document.addEventListener('DOMContentLoaded', function() {
+    // Aquí podrías agregar una librería de ordenamiento de tablas
+    // como DataTables si lo deseas
+});
+</script>
+{% endblock %}

@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+
+{% block title %}Configuración - Sistema de Inventario{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-4">
+    <h1 class="h3 h2-md mb-4">Panel de Configuración</h1>
+    
+    {% if current_user.rol != 'admin' %}
+    <div class="alert alert-danger">
+        No tienes permisos para acceder a esta sección.
+    </div>
+    {% else %}
+    
+    <!-- Tabs de configuración -->
+    <ul class="nav nav-tabs mb-3" id="configTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="usuarios-tab" data-bs-toggle="tab" data-bs-target="#usuarios" type="button">
+                <i class="fas fa-users"></i> <span class="d-none d-sm-inline">Usuarios</span>
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="categorias-tab" data-bs-toggle="tab" data-bs-target="#categorias" type="button">
+                <i class="fas fa-tags"></i> <span class="d-none d-sm-inline">Categorías</span>
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="ubicaciones-tab" data-bs-toggle="tab" data-bs-target="#ubicaciones" type="button">
+                <i class="fas fa-map-marker-alt"></i> <span class="d-none d-sm-inline">Ubicaciones</span>
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="sistema-tab" data-bs-toggle="tab" data-bs-target="#sistema" type="button">
+                <i class="fas fa-cog"></i> <span class="d-none d-sm-inline">Sistema</span>
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="configTabContent">
+        <!-- Tab Usuarios -->
+        <div class="tab-pane fade show active" id="usuarios" role="tabpanel">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4>Gestión de Usuarios</h4>
+                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalNuevoUsuario">
+                    <i class="fas fa-plus"></i> Nuevo Usuario
+                </button>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Usuario</th>
+                            <th>Nombre</th>
+                            <th class="d-none d-md-table-cell">Email</th>
+                            <th>Rol</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for usuario in usuarios %}
+                        <tr>
+                            <td>{{ usuario.username }}</td>
+                            <td>{{ usuario.nombre }}</td>
+                            <td class="d-none d-md-table-cell">{{ usuario.email }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'danger' if usuario.rol == 'admin' else 'primary' }}">
+                                    {{ usuario.rol }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if usuario.activo %}
+                                    <span class="badge bg-success">Activo</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inactivo</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-warning" onclick="editarUsuario({{ usuario.id }})">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tab Categorías -->
+        <div class="tab-pane fade" id="categorias" role="tabpanel">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4>Categorías de Equipo</h4>
+                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaCategoria">
+                    <i class="fas fa-plus"></i> Nueva Categoría
+                </button>
+            </div>
+            
+            <div class="row">
+                {% for categoria in categorias %}
+                <div class="col-12 col-md-6 col-lg-4 mb-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ categoria.nombre }}</h5>
+                            <p class="card-text text-muted">{{ categoria.descripcion or 'Sin descripción' }}</p>
+                            <p class="mb-0">
+                                <small>{{ categoria.equipos.count() }} equipos en esta categoría</small>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Tab Ubicaciones -->
+        <div class="tab-pane fade" id="ubicaciones" role="tabpanel">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4>Ubicaciones</h4>
+                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaUbicacion">
+                    <i class="fas fa-plus"></i> Nueva Ubicación
+                </button>
+            </div>
+            
+            <div class="row">
+                {% for ubicacion in ubicaciones %}
+                <div class="col-12 col-md-6 mb-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ ubicacion.nombre }}</h5>
+                            <p class="card-text text-muted">{{ ubicacion.descripcion or 'Sin descripción' }}</p>
+                            {% if ubicacion.responsable %}
+                            <p class="mb-1"><strong>Responsable:</strong> {{ ubicacion.responsable }}</p>
+                            {% endif %}
+                            <p class="mb-0">
+                                <small>{{ ubicacion.equipos.count() }} equipos en esta ubicación</small>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Tab Sistema -->
+        <div class="tab-pane fade" id="sistema" role="tabpanel">
+            <h4 class="mb-3">Configuración del Sistema</h4>
+            
+            <div class="row">
+                <div class="col-12 col-md-6">
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <h5 class="card-title">Información del Sistema</h5>
+                            <p><strong>Versión:</strong> 1.0.0</p>
+                            <p><strong>Base de datos:</strong> SQLite</p>
+                            <p><strong>Última actualización:</strong> {{ datetime.now().strftime('%d/%m/%Y') }}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-12 col-md-6">
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <h5 class="card-title">Mantenimiento</h5>
+                            <button class="btn btn-warning mb-2 w-100">
+                                <i class="fas fa-download"></i> Exportar Base de Datos
+                            </button>
+                            <button class="btn btn-info text-white w-100">
+                                <i class="fas fa-file-pdf"></i> Generar Reporte General
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% endif %}
+</div>
+
+<!-- Modal Nuevo Usuario -->
+<div class="modal fade" id="modalNuevoUsuario" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('nuevo_usuario') }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">Nuevo Usuario</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nombre de Usuario *</label>
+                        <input type="text" class="form-control" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nombre Completo *</label>
+                        <input type="text" class="form-control" name="nombre" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email *</label>
+                        <input type="email" class="form-control" name="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Contraseña *</label>
+                        <input type="password" class="form-control" name="password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Rol *</label>
+                        <select class="form-select" name="rol" required>
+                            <option value="usuario">Usuario</option>
+                            <option value="supervisor">Supervisor</option>
+                            <option value="admin">Administrador</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Área</label>
+                        <input type="text" class="form-control" name="area">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Crear Usuario</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nueva Categoría -->
+<div class="modal fade" id="modalNuevaCategoria" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('nueva_categoria') }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">Nueva Categoría</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nombre *</label>
+                        <input type="text" class="form-control" name="nombre" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Descripción</label>
+                        <textarea class="form-control" name="descripcion" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Crear Categoría</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nueva Ubicación -->
+<div class="modal fade" id="modalNuevaUbicacion" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('nueva_ubicacion') }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">Nueva Ubicación</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nombre *</label>
+                        <input type="text" class="form-control" name="nombre" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Descripción</label>
+                        <textarea class="form-control" name="descripcion" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Responsable</label>
+                        <input type="text" class="form-control" name="responsable">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Crear Ubicación</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

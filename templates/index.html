@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Sistema de Inventario{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-4">
+    <h1 class="h3 h2-md mb-4">Dashboard</h1>
+    
+    <!-- Tarjetas de estadísticas - Responsivas -->
+    <div class="row g-2 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card text-white bg-primary h-100">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title mb-1">Tipos de Equipo</h6>
+                            <h3 class="mb-0">{{ total_tipos }}</h3>
+                        </div>
+                        <i class="fas fa-boxes fa-2x opacity-50 d-none d-sm-block"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-6 col-md-3">
+            <div class="card text-white bg-info h-100">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title mb-1">Total Unidades</h6>
+                            <h3 class="mb-0">{{ total_unidades }}</h3>
+                        </div>
+                        <i class="fas fa-calculator fa-2x opacity-50 d-none d-sm-block"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-6 col-md-3">
+            <div class="card text-white bg-success h-100">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title mb-1">Disponibles</h6>
+                            <h3 class="mb-0">{{ unidades_disponibles }}</h3>
+                        </div>
+                        <i class="fas fa-check-circle fa-2x opacity-50 d-none d-sm-block"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-6 col-md-3">
+            <div class="card text-white bg-warning h-100">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title mb-1">Préstamos</h6>
+                            <h3 class="mb-0">{{ prestamos_activos }}</h3>
+                        </div>
+                        <i class="fas fa-hand-holding fa-2x opacity-50 d-none d-sm-block"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Acciones rápidas - Botones grandes para móvil -->
+    <div class="mb-4">
+        <h5 class="mb-3">Acciones Rápidas</h5>
+        <div class="d-grid gap-2 d-md-flex">
+            <a href="{{ url_for('nuevo_equipo') }}" class="btn btn-primary">
+                <i class="fas fa-plus-circle"></i> Nuevo Equipo
+            </a>
+            <a href="{{ url_for('nuevo_prestamo') }}" class="btn btn-success">
+                <i class="fas fa-hand-holding"></i> Nuevo Préstamo
+            </a>
+            <a href="{{ url_for('prestamos') }}" class="btn btn-info text-white">
+                <i class="fas fa-list"></i> Ver Préstamos
+            </a>
+        </div>
+    </div>
+
+    <!-- Alertas importantes -->
+    <div class="row g-3">
+        <!-- Equipos con stock bajo -->
+        {% if equipos_alerta %}
+        <div class="col-12 col-lg-6">
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="fas fa-exclamation-triangle"></i> Stock Bajo</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for equipo in equipos_alerta[:5] %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">{{ equipo.nombre }}</h6>
+                                    <small class="text-muted">{{ equipo.codigo }}</small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-warning text-dark">
+                                        {{ equipo.cantidad_disponible }}/{{ equipo.cantidad_total }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Préstamos vencidos -->
+        {% if prestamos_vencidos %}
+        <div class="col-12 col-lg-6">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0"><i class="fas fa-clock"></i> Préstamos Vencidos</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for prestamo in prestamos_vencidos[:5] %}
+                        <a href="{{ url_for('ver_prestamo', id=prestamo.id) }}" class="list-group-item list-group-item-action">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">{{ prestamo.responsable_nombre }}</h6>
+                                    <p class="mb-1 small">{{ prestamo.total_items }} items - {{ prestamo.folio }}</p>
+                                    <small class="text-danger">
+                                        Vencido hace {{ (datetime.now() - prestamo.fecha_devolucion_esperada).days }} días
+                                    </small>
+                                </div>
+                                <span class="badge bg-danger">Ver</span>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Préstamos recientes -->
+    <div class="mt-4">
+        <h5 class="mb-3">Préstamos Recientes</h5>
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Folio</th>
+                        <th>Responsable</th>
+                        <th class="d-none d-sm-table-cell">Items</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for prestamo in prestamos_recientes %}
+                    <tr onclick="window.location='{{ url_for('ver_prestamo', id=prestamo.id) }}'" style="cursor: pointer;">
+                        <td>{{ prestamo.folio }}</td>
+                        <td>
+                            {{ prestamo.responsable_nombre }}<br>
+                            <small class="text-muted d-sm-none">{{ prestamo.total_items }} items</small>
+                        </td>
+                        <td class="d-none d-sm-table-cell">{{ prestamo.total_items }}</td>
+                        <td>
+                            {% if prestamo.estado == 'activo' %}
+                                {% if prestamo.vencido %}
+                                    <span class="badge bg-danger">Vencido</span>
+                                {% else %}
+                                    <span class="badge bg-warning">Activo</span>
+                                {% endif %}
+                            {% elif prestamo.estado == 'parcial' %}
+                                <span class="badge bg-info">Parcial</span>
+                            {% else %}
+                                <span class="badge bg-success">Devuelto</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- CSS adicional para móvil -->
+<style>
+@media (max-width: 576px) {
+    .card-body h3 {
+        font-size: 1.5rem;
+    }
+    .card-title {
+        font-size: 0.875rem;
+    }
+}
+</style>
+{% endblock %}

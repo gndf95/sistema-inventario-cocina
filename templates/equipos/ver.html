@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+
+{% block title %}{{ equipo.nombre }} - Sistema de Inventario{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-4">
+    <div class="row mb-3">
+        <div class="col-6">
+            <h1 class="h3 h2-md">{{ equipo.nombre }}</h1>
+        </div>
+        <div class="col-6 text-end">
+            <a href="{{ url_for('editar_equipo', id=equipo.id) }}" class="btn btn-warning btn-sm">
+                <i class="fas fa-edit"></i> Editar
+            </a>
+            <a href="{{ url_for('equipos') }}" class="btn btn-secondary btn-sm">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Información Principal -->
+        <div class="col-12 col-lg-8">
+            <!-- Tarjeta de información -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Información del Equipo</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Código:</strong> {{ equipo.codigo }}</p>
+                            <p><strong>Categoría:</strong> {{ equipo.categoria.nombre if equipo.categoria else 'Sin categoría' }}</p>
+                            <p><strong>Ubicación:</strong> {{ equipo.ubicacion.nombre if equipo.ubicacion else 'Sin ubicación' }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Fecha de registro:</strong> {{ equipo.fecha_registro.strftime('%d/%m/%Y') if equipo.fecha_registro else 'N/A' }}</p>
+                            <p><strong>Fecha de adquisición:</strong> {{ equipo.fecha_adquisicion.strftime('%d/%m/%Y') if equipo.fecha_adquisicion else 'N/A' }}</p>
+                        </div>
+                    </div>
+                    {% if equipo.descripcion %}
+                    <hr>
+                    <p><strong>Descripción:</strong></p>
+                    <p>{{ equipo.descripcion }}</p>
+                    {% endif %}
+                    {% if equipo.observaciones %}
+                    <p><strong>Observaciones:</strong></p>
+                    <p>{{ equipo.observaciones }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Estado del inventario -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Estado del Inventario</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <h3 class="text-primary">{{ equipo.cantidad_total }}</h3>
+                            <p class="text-muted">Total</p>
+                        </div>
+                        <div class="col-4">
+                            <h3 class="text-success">{{ equipo.cantidad_disponible }}</h3>
+                            <p class="text-muted">Disponible</p>
+                        </div>
+                        <div class="col-4">
+                            <h3 class="text-warning">{{ equipo.cantidad_prestada }}</h3>
+                            <p class="text-muted">Prestado</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Barra de progreso -->
+                    <div class="progress mt-3" style="height: 25px;">
+                        <div class="progress-bar bg-success" role="progressbar" 
+                             style="width: {{ equipo.porcentaje_disponible }}%">
+                            {{ equipo.porcentaje_disponible }}% Disponible
+                        </div>
+                        {% if equipo.cantidad_prestada > 0 %}
+                        <div class="progress-bar bg-warning" role="progressbar" 
+                             style="width: {{ ((equipo.cantidad_prestada / equipo.cantidad_total) * 100)|int }}%">
+                            {{ ((equipo.cantidad_prestada / equipo.cantidad_total) * 100)|int }}% Prestado
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    {% if equipo.alerta_stock %}
+                    <div class="alert alert-warning mt-3 mb-0">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>¡Stock Bajo!</strong> Quedan {{ equipo.cantidad_disponible }} unidades disponibles.
+                        El mínimo configurado es {{ equipo.cantidad_minima }}.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Historial de préstamos -->
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Historial de Préstamos</h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if historial %}
+                    <div class="table-responsive">
+                        <table class="table mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Responsable</th>
+                                    <th>Cantidad</th>
+                                    <th>Estado</th>
+                                    <th>Días</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for detalle in historial[:10] %}
+                                <tr>
+                                    <td>{{ detalle.prestamo.fecha_prestamo.strftime('%d/%m/%Y') }}</td>
+                                    <td>
+                                        {{ detalle.prestamo.responsable_nombre }}<br>
+                                        <small class="text-muted">{{ detalle.prestamo.responsable_area }}</small>
+                                    </td>
+                                    <td>
+                                        {{ detalle.cantidad }}
+                                        {% if detalle.cantidad_devuelta < detalle.cantidad %}
+                                            <span class="badge bg-warning">{{ detalle.cantidad_devuelta }} devueltos</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if detalle.prestamo.estado == 'devuelto' %}
+                                            <span class="badge bg-success">Devuelto</span>
+                                        {% elif detalle.prestamo.estado == 'parcial' %}
+                                            <span class="badge bg-info">Parcial</span>
+                                        {% elif detalle.prestamo.vencido %}
+                                            <span class="badge bg-danger">Vencido</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">Activo</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ detalle.prestamo.dias_prestamo }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-center text-muted py-3 mb-0">No hay historial de préstamos para este equipo.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel lateral -->
+        <div class="col-12 col-lg-4 mt-4 mt-lg-0">
+            <!-- QR Code -->
+            {% if equipo.codigo_qr %}
+            <div class="card mb-3">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">Código QR</h6>
+                </div>
+                <div class="card-body text-center">
+                    <img src="data:image/png;base64,{{ equipo.codigo_qr }}" 
+                         class="img-fluid mb-3" style="max-width: 200px;">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-primary btn-sm" onclick="imprimirQR()">
+                            <i class="fas fa-print"></i> Imprimir QR
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="descargarQR()">
+                            <i class="fas fa-download"></i> Descargar QR
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Acciones rápidas -->
+            <div class="card mb-3">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">Acciones Rápidas</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        {% if equipo.cantidad_disponible > 0 %}
+                        <a href="{{ url_for('nuevo_prestamo') }}?equipo_id={{ equipo.id }}" 
+                           class="btn btn-success">
+                            <i class="fas fa-hand-holding"></i> Prestar este equipo
+                        </a>
+                        {% else %}
+                        <button class="btn btn-secondary" disabled>
+                            <i class="fas fa-hand-holding"></i> Sin disponibilidad
+                        </button>
+                        {% endif %}
+                        
+                        <button class="btn btn-warning" onclick="cambiarEstado()">
+                            <i class="fas fa-tools"></i> Enviar a mantenimiento
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Foto del equipo -->
+            {% if equipo.foto %}
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">Foto</h6>
+                </div>
+                <div class="card-body text-center">
+                    <img src="{{ url_for('static', filename=equipo.foto) }}" 
+                         class="img-fluid rounded" alt="{{ equipo.nombre }}">
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function imprimirQR() {
+    const qr = '{{ equipo.codigo_qr }}';
+    const nombre = '{{ equipo.nombre }}';
+    const codigo = '{{ equipo.codigo }}';
+    
+    const ventana = window.open('', '_blank');
+    ventana.document.write(`
+        <html>
+        <head>
+            <title>QR - ${nombre}</title>
+            <style>
+                body { 
+                    text-align: center; 
+                    font-family: Arial;
+                    padding: 20px;
+                }
+                .qr-container {
+                    border: 2px solid #000;
+                    padding: 20px;
+                    display: inline-block;
+                    margin: 20px;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="qr-container">
+                <h2>${nombre}</h2>
+                <img src="data:image/png;base64,${qr}" style="max-width: 300px;">
+                <h3>Código: ${codigo}</h3>
+            </div>
+            <script>window.print();<\/script>
+        </body>
+        </html>
+    `);
+    ventana.document.close();
+}
+
+function descargarQR() {
+    const link = document.createElement('a');
+    link.href = 'data:image/png;base64,{{ equipo.codigo_qr }}';
+    link.download = 'QR_{{ equipo.codigo }}.png';
+    link.click();
+}
+
+function cambiarEstado() {
+    if (confirm('¿Enviar este equipo a mantenimiento?')) {
+        alert('Función en desarrollo. Por ahora, usa la opción de editar.');
+    }
+}
+</script>
+{% endblock %}

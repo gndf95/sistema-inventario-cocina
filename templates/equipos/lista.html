@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+
+{% block title %}Equipos - Sistema de Inventario{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-4">
+    <div class="row mb-3">
+        <div class="col-12 col-md-6">
+            <h1 class="h3 h2-md">Equipos</h1>
+        </div>
+        <div class="col-12 col-md-6 text-md-end">
+            <div class="btn-group" role="group">
+                <a href="{{ url_for('nuevo_equipo') }}" class="btn btn-primary btn-sm">
+                    <i class="fas fa-plus"></i> <span class="d-none d-sm-inline">Nuevo</span>
+                </a>
+                <a href="{{ url_for('importar_equipos') }}" class="btn btn-success btn-sm">
+                    <i class="fas fa-file-import"></i> <span class="d-none d-sm-inline">Importar</span>
+                </a>
+                <a href="{{ url_for('exportar_equipos') }}" class="btn btn-info btn-sm text-white">
+                    <i class="fas fa-file-export"></i> <span class="d-none d-sm-inline">Exportar</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-3">
+        <div class="card-body p-2 p-md-3">
+            <form class="row g-2">
+                <div class="col-12 col-md-4">
+                    <input type="text" class="form-control form-control-sm" id="buscar" 
+                           placeholder="Buscar por nombre o código...">
+                </div>
+                <div class="col-6 col-md-3">
+                    <select class="form-select form-select-sm" id="filtroCategoria">
+                        <option value="">Todas las categorías</option>
+                        {% for categoria in categorias %}
+                        <option value="{{ categoria.nombre }}">{{ categoria.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-3">
+                    <select class="form-select form-select-sm" id="filtroEstado">
+                        <option value="">Todos los estados</option>
+                        <option value="disponible">Con disponibilidad</option>
+                        <option value="agotado">Agotado</option>
+                        <option value="alerta">Stock bajo</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-2">
+                    <button type="button" class="btn btn-secondary btn-sm w-100" onclick="limpiarFiltros()">
+                        <i class="fas fa-times"></i> Limpiar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Vista de tarjetas para móvil, tabla para escritorio -->
+    <div class="d-block d-md-none">
+        <!-- Vista móvil - Tarjetas -->
+        <div class="row g-2" id="vistaMovil">
+            {% for equipo in equipos %}
+            <div class="col-12 equipo-item" 
+                 data-nombre="{{ equipo.nombre.lower() }}"
+                 data-codigo="{{ equipo.codigo.lower() }}"
+                 data-categoria="{{ equipo.categoria.nombre if equipo.categoria else '' }}"
+                 data-estado="{% if equipo.cantidad_disponible == 0 %}agotado{% elif equipo.alerta_stock %}alerta{% else %}disponible{% endif %}">
+                <div class="card mb-2">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">{{ equipo.nombre }}</h6>
+                                <p class="text-muted small mb-1">
+                                    Código: {{ equipo.codigo }}<br>
+                                    {{ equipo.categoria.nombre if equipo.categoria else 'Sin categoría' }}
+                                </p>
+                                <div class="mt-2">
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar 
+                                            {% if equipo.porcentaje_disponible > 50 %}bg-success
+                                            {% elif equipo.porcentaje_disponible > 20 %}bg-warning
+                                            {% else %}bg-danger{% endif %}" 
+                                            style="width: {{ equipo.porcentaje_disponible }}%">
+                                            {{ equipo.cantidad_disponible }}/{{ equipo.cantidad_total }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <a href="{{ url_for('ver_equipo', id=equipo.id) }}" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Vista escritorio - Tabla -->
+    <div class="d-none d-md-block">
+        <div class="table-responsive">
+            <table class="table table-hover" id="tablaEquipos">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        <th>Categoría</th>
+                        <th>Ubicación</th>
+                        <th>Stock</th>
+                        <th>Disponibilidad</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for equipo in equipos %}
+                    <tr class="equipo-item"
+                        data-nombre="{{ equipo.nombre.lower() }}"
+                        data-codigo="{{ equipo.codigo.lower() }}"
+                        data-categoria="{{ equipo.categoria.nombre if equipo.categoria else '' }}"
+                        data-estado="{% if equipo.cantidad_disponible == 0 %}agotado{% elif equipo.alerta_stock %}alerta{% else %}disponible{% endif %}">
+                        <td>{{ equipo.codigo }}</td>
+                        <td>
+                            <strong>{{ equipo.nombre }}</strong>
+                            {% if equipo.descripcion %}
+                            <br><small class="text-muted">{{ equipo.descripcion[:50] }}...</small>
+                            {% endif %}
+                        </td>
+                        <td>{{ equipo.categoria.nombre if equipo.categoria else '-' }}</td>
+                        <td>{{ equipo.ubicacion.nombre if equipo.ubicacion else '-' }}</td>
+                        <td>
+                            <span class="badge bg-primary">Total: {{ equipo.cantidad_total }}</span>
+                            <span class="badge bg-success">Disp: {{ equipo.cantidad_disponible }}</span>
+                            {% if equipo.cantidad_prestada > 0 %}
+                            <span class="badge bg-warning">Prest: {{ equipo.cantidad_prestada }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="progress" style="height: 20px; min-width: 100px;">
+                                <div class="progress-bar 
+                                    {% if equipo.porcentaje_disponible > 50 %}bg-success
+                                    {% elif equipo.porcentaje_disponible > 20 %}bg-warning
+                                    {% else %}bg-danger{% endif %}" 
+                                    style="width: {{ equipo.porcentaje_disponible }}%">
+                                    {{ equipo.porcentaje_disponible }}%
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a href="{{ url_for('ver_equipo', id=equipo.id) }}" 
+                                   class="btn btn-primary" title="Ver detalles">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{{ url_for('editar_equipo', id=equipo.id) }}" 
+                                   class="btn btn-warning" title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                {% if equipo.codigo_qr %}
+                                <button class="btn btn-secondary" 
+                                        onclick="mostrarQR('{{ equipo.codigo_qr }}', '{{ equipo.nombre }}')"
+                                        title="Ver QR">
+                                    <i class="fas fa-qrcode"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para mostrar QR -->
+<div class="modal fade" id="modalQR" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloQR">Código QR</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="imagenQR" class="img-fluid" style="max-width: 300px;">
+                <div class="mt-3">
+                    <button class="btn btn-primary" onclick="imprimirQR()">
+                        <i class="fas fa-print"></i> Imprimir
+                    </button>
+                    <button class="btn btn-secondary" onclick="descargarQR()">
+                        <i class="fas fa-download"></i> Descargar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Variables globales
+let qrActual = '';
+let nombreActual = '';
+
+// Función para mostrar QR en modal
+function mostrarQR(codigoQR, nombre) {
+    qrActual = codigoQR;
+    nombreActual = nombre;
+    document.getElementById('tituloQR').textContent = 'QR - ' + nombre;
+    document.getElementById('imagenQR').src = 'data:image/png;base64,' + codigoQR;
+    new bootstrap.Modal(document.getElementById('modalQR')).show();
+}
+
+// Función para imprimir QR
+function imprimirQR() {
+    const ventana = window.open('', '_blank');
+    ventana.document.write(`
+        <html>
+        <head>
+            <title>Imprimir QR - ${nombreActual}</title>
+            <style>
+                body { 
+                    text-align: center; 
+                    font-family: Arial, sans-serif;
+                    margin: 20px;
+                }
+                h2 { margin-bottom: 20px; }
+                img { max-width: 300px; margin: 20px auto; }
+            </style>
+        </head>
+        <body>
+            <h2>${nombreActual}</h2>
+            <img src="data:image/png;base64,${qrActual}">
+            <script>window.print();<\/script>
+        </body>
+        </html>
+    `);
+    ventana.document.close();
+}
+
+// Función para descargar QR
+function descargarQR() {
+    const link = document.createElement('a');
+    link.href = 'data:image/png;base64,' + qrActual;
+    link.download = 'QR_' + nombreActual.replace(/\s+/g, '_') + '.png';
+    link.click();
+}
+
+// Filtros de búsqueda
+document.getElementById('buscar').addEventListener('keyup', filtrarEquipos);
+document.getElementById('filtroEstado').addEventListener('change', filtrarEquipos);
+document.getElementById('filtroCategoria').addEventListener('change', filtrarEquipos);
+
+function filtrarEquipos() {
+    const buscar = document.getElementById('buscar').value.toLowerCase();
+    const estado = document.getElementById('filtroEstado').value;
+    const categoria = document.getElementById('filtroCategoria').value;
+    
+    const items = document.querySelectorAll('.equipo-item');
+    
+    items.forEach(item => {
+        const nombre = item.getAttribute('data-nombre');
+        const codigo = item.getAttribute('data-codigo');
+        const itemCategoria = item.getAttribute('data-categoria');
+        const itemEstado = item.getAttribute('data-estado');
+        
+        let mostrar = true;
+        
+        // Filtro de búsqueda
+        if (buscar && !nombre.includes(buscar) && !codigo.includes(buscar)) {
+            mostrar = false;
+        }
+        
+        // Filtro de categoría
+        if (categoria && itemCategoria !== categoria) {
+            mostrar = false;
+        }
+        
+        // Filtro de estado
+        if (estado && itemEstado !== estado) {
+            mostrar = false;
+        }
+        
+        // Mostrar u ocultar
+        if (window.innerWidth < 768) {
+            // Vista móvil
+            item.style.display = mostrar ? 'block' : 'none';
+        } else {
+            // Vista escritorio
+            item.style.display = mostrar ? '' : 'none';
+        }
+    });
+}
+
+function limpiarFiltros() {
+    document.getElementById('buscar').value = '';
+    document.getElementById('filtroEstado').value = '';
+    document.getElementById('filtroCategoria').value = '';
+    filtrarEquipos();
+}
+</script>
+{% endblock %}.

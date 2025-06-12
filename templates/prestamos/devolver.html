@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block title %}Registrar Devolución - Sistema de Inventario{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-4">
+    <h1 class="h3 h2-md mb-4">Registrar Devolución - {{ prestamo.folio }}</h1>
+    
+    <!-- Información del préstamo -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Información del Préstamo</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Responsable:</strong> {{ prestamo.responsable_nombre }}</p>
+                    <p><strong>Área:</strong> {{ prestamo.responsable_area }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Fecha de préstamo:</strong> {{ prestamo.fecha_prestamo.strftime('%d/%m/%Y %H:%M') }}</p>
+                    <p><strong>Fecha esperada:</strong> {{ prestamo.fecha_devolucion_esperada.strftime('%d/%m/%Y') }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulario de devolución -->
+    <form method="POST" id="formDevolucion">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Equipos a Devolver</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Equipo</th>
+                                <th>Prestado</th>
+                                <th>Ya Devuelto</th>
+                                <th>Devolver Ahora</th>
+                                <th>Estado del Equipo</th>
+                                <th>Observaciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for detalle in prestamo.detalles %}
+                            <tr>
+                                <td>
+                                    <strong>{{ detalle.tipo_equipo.nombre }}</strong><br>
+                                    <small class="text-muted">{{ detalle.tipo_equipo.codigo }}</small>
+                                </td>
+                                <td>{{ detalle.cantidad }}</td>
+                                <td>{{ detalle.cantidad_devuelta }}</td>
+                                <td>
+                                    <input type="number" 
+                                           class="form-control form-control-sm cantidad-devolver" 
+                                           name="cantidad_{{ detalle.id }}"
+                                           min="0" 
+                                           max="{{ detalle.cantidad - detalle.cantidad_devuelta }}"
+                                           value="{{ detalle.cantidad - detalle.cantidad_devuelta }}"
+                                           data-pendiente="{{ detalle.cantidad - detalle.cantidad_devuelta }}">
+                                </td>
+                                <td>
+                                    <select class="form-select form-select-sm" name="estado_{{ detalle.id }}">
+                                        <option value="bueno">Buen estado</option>
+                                        <option value="dañado">Dañado</option>
+                                        <option value="perdido">Perdido</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="text" 
+                                           class="form-control form-control-sm" 
+                                           name="obs_{{ detalle.id }}"
+                                           placeholder="Opcional">
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Observaciones generales -->
+        <div class="card mt-3">
+            <div class="card-body">
+                <label class="form-label">Observaciones Generales</label>
+                <textarea class="form-control" name="observaciones_generales" rows="3" 
+                          placeholder="Comentarios sobre la devolución..."></textarea>
+            </div>
+        </div>
+
+        <!-- Resumen de devolución -->
+        <div class="alert alert-info mt-3" id="resumenDevolucion">
+            <h6>Resumen de la Devolución:</h6>
+            <div id="resumenContenido"></div>
+        </div>
+
+        <!-- Botones -->
+        <div class="mt-4">
+            <a href="{{ url_for('ver_prestamo', id=prestamo.id) }}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Cancelar
+            </a>
+            <button type="button" class="btn btn-warning" onclick="devolverParcial()">
+                <i class="fas fa-adjust"></i> Devolución Parcial
+            </button>
+            <button type="submit" class="btn btn-success">
+                <i class="fas fa-check"></i> Confirmar Devolución
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+// Actualizar resumen en tiempo real
+function actualizarResumen() {
+    let resumen = "";
+    let totalDevolver = 0;
+    
+    document.querySelectorAll('.cantidad-devolver').forEach(input => {
+        const cantidad = parseInt(input.value) || 0;
+        if (cantidad > 0) {
+            const row = input.closest('tr');
+            const equipo = row.querySelector('strong').textContent;
+            const estado = row.querySelector('select').value;
+            resumen += `<li>${cantidad} x ${equipo} (${estado})</li>`;
+            totalDevolver += cantidad;
+        }
+    });
+    
+    if (totalDevolver > 0) {
+        document.getElementById('resumenContenido').innerHTML = 
+            `<ul class="mb-0">${resumen}</ul>
+             <strong>Total a devolver: ${totalDevolver} items</strong>`;
+    } else {
+        document.getElementById('resumenContenido').innerHTML = 
+            '<span class="text-danger">No has seleccionado items para devolver</span>';
+    }
+}
+
+// Devolución parcial (poner todos en 0)
+function devolverParcial() {
+    if (confirm('¿Deseas hacer una devolución parcial? Podrás seleccionar qué items devolver.')) {
+        document.querySelectorAll('.cantidad-devolver').forEach(input => {
+            input.value = 0;
+        });
+        actualizarResumen();
+    }
+}
+
+// Actualizar resumen cuando cambian los valores
+document.addEventListener('input', function(e) {
+    if (e.target.classList.contains('cantidad-devolver')) {
+        actualizarResumen();
+    }
+});
+
+// Validar antes de enviar
+document.getElementById('formDevolucion').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    let hayDevolucion = false;
+    document.querySelectorAll('.cantidad-devolver').forEach(input => {
+        if (parseInt(input.value) > 0) {
+            hayDevolucion = true;
+        }
+    });
+    
+    if (!hayDevolucion) {
+        alert('Debes seleccionar al menos un item para devolver');
+        return false;
+    }
+    
+    if (confirm('¿Confirmas la devolución de los items seleccionados?')) {
+        this.submit();
+    }
+});
+
+// Inicializar resumen
+actualizarResumen();
+</script>
+{% endblock %}
