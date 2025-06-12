@@ -1,35 +1,13 @@
-# =============================================================================
-# requirements.txt - VERSIONES SEGURAS PARA RAILWAY 2024
-# =============================================================================
-
-# Framework principal
 Flask==3.0.0
 Flask-SQLAlchemy==3.1.1
 Flask-Login==0.6.3
 Flask-WTF==1.2.1
-
-# Base de datos (versión segura)
-psycopg2-binary==2.9.9
-
-# QR y PDFs
 qrcode[pil]==7.4.2
+python-dotenv==1.0.0
+Werkzeug==3.0.1
 reportlab==4.0.8
-
-# Excel (pandas y dependencias - versiones actualizadas)
 pandas==2.1.4
 openpyxl==3.1.2
 xlsxwriter==3.1.9
-numpy==1.26.2
-
-# Servidor web para producción (VERSIÓN SEGURA)
+psycopg2-binary==2.9.9
 gunicorn==23.0.0
-
-# Utilidades
-python-dotenv==1.0.0
-Werkzeug==3.0.1
-
-# Pillow (para imágenes QR) - versión segura
-Pillow==10.1.0
-
-# Dependencias adicionales para estabilidad
-setuptools==78.1.1
