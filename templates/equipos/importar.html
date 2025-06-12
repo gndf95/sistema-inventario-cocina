@@ -5,7 +5,27 @@
 {% block content %}
 <div class="container-fluid px-2 px-md-4">
     <h1 class="h3 h2-md mb-4">Importar Equipos desde Excel</h1>
-    
+
+    <!-- Información del usuario y permisos -->
+    <div class="alert alert-info mb-4">
+        <h6><i class="fas fa-user"></i> Tu información de acceso:</h6>
+        <ul class="mb-0">
+            <li><strong>Usuario:</strong> {{ current_user.nombre }}</li>
+            <li><strong>Rol:</strong> {{ current_user.rol|title }}</li>
+            {% if es_admin %}
+                <li><strong>Permisos:</strong> Puedes importar equipos a cualquier almacén</li>
+                <li><strong>Almacenes disponibles:</strong> {{ almacenes_disponibles|length }} almacenes</li>
+            {% else %}
+                {% if usuario_almacen %}
+                    <li><strong>Almacén asignado:</strong> {{ usuario_almacen }}</li>
+                    <li><strong>Permisos:</strong> Solo puedes importar equipos a tu almacén asignado</li>
+                {% else %}
+                    <li class="text-danger"><strong>⚠️ Sin almacén asignado:</strong> Contacta al administrador para asignarte un almacén</li>
+                {% endif %}
+            {% endif %}
+        </ul>
+    </div>
+
     <div class="row">
         <div class="col-12 col-lg-8">
             <!-- Instrucciones -->
@@ -17,23 +37,27 @@
                     <ol>
                         <li>Descarga la plantilla de Excel haciendo clic en el botón azul</li>
                         <li>Completa los datos de tus equipos en la hoja "Equipos"</li>
-                        <li>Revisa las hojas de "Categorías Válidas" y "Ubicaciones Válidas"</li>
+                        <li>Revisa las hojas de "Categorías Válidas" y "Almacenes Disponibles"</li>
                         <li>Guarda el archivo y súbelo usando el formulario</li>
                         <li>El sistema creará los equipos nuevos y actualizará los existentes</li>
                     </ol>
-                    
+
                     <div class="alert alert-warning mt-3">
                         <strong>Importante:</strong>
                         <ul class="mb-0">
                             <li>El código debe ser único para cada equipo</li>
-                            <li>Las categorías y ubicaciones deben existir en el sistema</li>
+                            <li>Las categorías y almacenes deben existir en el sistema</li>
                             <li>Si un código ya existe, se actualizará la información</li>
+                            {% if not es_admin %}
+                            <li class="text-danger"><strong>Solo puedes importar equipos para: {{ usuario_almacen or 'SIN ALMACÉN ASIGNADO' }}</strong></li>
+                            {% endif %}
                         </ul>
                     </div>
                 </div>
             </div>
 
             <!-- Formulario de carga -->
+            {% if es_admin or usuario_almacen %}
             <div class="card">
                 <div class="card-header bg-primary text-white">
                     <h5 class="mb-0"><i class="fas fa-upload"></i> Cargar Archivo</h5>
@@ -42,11 +66,11 @@
                     <form method="POST" enctype="multipart/form-data">
                         <div class="mb-3">
                             <label for="archivo" class="form-label">Seleccionar archivo Excel</label>
-                            <input type="file" class="form-control" id="archivo" name="archivo" 
+                            <input type="file" class="form-control" id="archivo" name="archivo"
                                    accept=".xlsx,.xls" required>
                             <small class="text-muted">Formatos aceptados: .xlsx, .xls</small>
                         </div>
-                        
+
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
                             <a href="{{ url_for('equipos') }}" class="btn btn-secondary">
                                 <i class="fas fa-times"></i> Cancelar
@@ -58,8 +82,22 @@
                     </form>
                 </div>
             </div>
+            {% else %}
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0"><i class="fas fa-exclamation-triangle"></i> Sin Permisos</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-danger">No puedes importar equipos porque no tienes un almacén asignado.</p>
+                    <p>Contacta al administrador del sistema para que te asigne un almacén.</p>
+                    <a href="{{ url_for('equipos') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Volver a Equipos
+                    </a>
+                </div>
+            </div>
+            {% endif %}
         </div>
-        
+
         <div class="col-12 col-lg-4 mt-4 mt-lg-0">
             <!-- Panel de descarga -->
             <div class="card mb-4">
@@ -68,13 +106,48 @@
                 </div>
                 <div class="card-body text-center">
                     <i class="fas fa-file-excel fa-4x text-success mb-3"></i>
-                    <p>Descarga la plantilla con el formato correcto y ejemplos</p>
+                    <p>Descarga la plantilla personalizada para tu nivel de acceso</p>
+                    {% if es_admin %}
+                    <p class="small text-muted">Incluye todos los almacenes del sistema</p>
+                    {% elif usuario_almacen %}
+                    <p class="small text-muted">Configurada para: <strong>{{ usuario_almacen }}</strong></p>
+                    {% endif %}
+
+                    {% if es_admin or usuario_almacen %}
                     <a href="{{ url_for('descargar_plantilla_excel') }}" class="btn btn-primary">
                         <i class="fas fa-download"></i> Descargar Plantilla
                     </a>
+                    {% else %}
+                    <button class="btn btn-secondary" disabled>
+                        <i class="fas fa-ban"></i> Sin Acceso
+                    </button>
+                    {% endif %}
                 </div>
             </div>
-            
+
+            <!-- Información de almacenes disponibles -->
+            {% if almacenes_disponibles %}
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">Almacenes Disponibles</h6>
+                </div>
+                <div class="card-body">
+                    {% for almacen in almacenes_disponibles %}
+                    <div class="mb-2">
+                        <strong>{{ almacen.nombre }}</strong>
+                        {% if almacen.descripcion %}
+                        <br><small class="text-muted">{{ almacen.descripcion }}</small>
+                        {% endif %}
+                        {% if almacen.responsable %}
+                        <br><small class="text-info">Responsable: {{ almacen.responsable }}</small>
+                        {% endif %}
+                    </div>
+                    {% if not loop.last %}<hr>{% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Información de campos -->
             <div class="card">
                 <div class="card-header bg-light">
@@ -82,30 +155,30 @@
                 </div>
                 <div class="card-body small">
                     <dl class="row mb-0">
-                        <dt class="col-5">código*</dt>
+                        <dt class="col-5">codigo*</dt>
                         <dd class="col-7">Identificador único</dd>
-                        
+
                         <dt class="col-5">nombre*</dt>
                         <dd class="col-7">Nombre del equipo</dd>
-                        
-                        <dt class="col-5">descripción</dt>
+
+                        <dt class="col-5">descripcion</dt>
                         <dd class="col-7">Detalles del equipo</dd>
-                        
-                        <dt class="col-5">categoría*</dt>
+
+                        <dt class="col-5">categoria*</dt>
                         <dd class="col-7">Debe existir en el sistema</dd>
-                        
-                        <dt class="col-5">ubicación*</dt>
-                        <dd class="col-7">Debe existir en el sistema</dd>
-                        
+
+                        <dt class="col-5">almacen*</dt>
+                        <dd class="col-7">{% if es_admin %}Cualquier almacén válido{% else %}{{ usuario_almacen or 'SIN ASIGNAR' }}{% endif %}</dd>
+
                         <dt class="col-5">cantidad_total*</dt>
                         <dd class="col-7">Número entero</dd>
-                        
+
                         <dt class="col-5">cantidad_minima*</dt>
                         <dd class="col-7">Para alertas</dd>
-                        
+
                         <dt class="col-5">fecha_adquisicion</dt>
                         <dd class="col-7">YYYY-MM-DD</dd>
-                        
+
                         <dt class="col-5">observaciones</dt>
                         <dd class="col-7">Notas adicionales</dd>
                     </dl>

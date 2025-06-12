@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Configuración Equipos por Almacenes - Sistema de Inventario{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-4">
+    <div class="row mb-3">
+        <div class="col-12 col-md-8">
+            <h1 class="h3 h2-md">Configuración de Equipos por Almacenes</h1>
+            <p class="text-muted">Asigna cada equipo a los almacenes correspondientes</p>
+        </div>
+        <div class="col-12 col-md-4 text-md-end">
+            <a href="{{ url_for('configuracion') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Volver a Configuración
+            </a>
+        </div>
+    </div>
+
+    <!-- Información de almacenes -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h5>3 Almacenes que Prestan Equipos:</h5>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <h6 class="text-primary">🛒 Almacén Compras</h6>
+                            <small>Utensilios generales, herramientas básicas, contenedores</small>
+                        </div>
+                        <div class="col-md-4">
+                            <h6 class="text-success">🧪 Almacén Calidad e Higiene</h6>
+                            <small>Instrumentos de medición, equipo de control, balanzas</small>
+                        </div>
+                        <div class="col-md-4">
+                            <h6 class="text-warning">⚡ Almacén Equipo Especial</h6>
+                            <small>Maquinaria especializada, herramientas técnicas</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-3">
+        <div class="card-body p-2 p-md-3">
+            <div class="row g-2">
+                <div class="col-12 col-md-4">
+                    <input type="text" class="form-control form-control-sm" id="buscarEquipo"
+                           placeholder="Buscar equipo...">
+                </div>
+                <div class="col-6 col-md-3">
+                    <select class="form-select form-select-sm" id="filtroAlmacen">
+                        <option value="">Todos los almacenes</option>
+                        <option value="Almacén Compras">Almacén Compras</option>
+                        <option value="Almacén Calidad e Higiene">Almacén Calidad e Higiene</option>
+                        <option value="Almacén Equipo Especial">Almacén Equipo Especial</option>
+                        <option value="sin-almacen">Sin almacén asignado</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-3">
+                    <select class="form-select form-select-sm" id="filtroCategoria">
+                        <option value="">Todas las categorías</option>
+                        {% set categorias_mostradas = [] %}
+                        {% for equipo in equipos %}
+                            {% if equipo.categoria and equipo.categoria.nombre not in categorias_mostradas %}
+                                {% set _ = categorias_mostradas.append(equipo.categoria.nombre) %}
+                                <option value="{{ equipo.categoria.nombre }}">{{ equipo.categoria.nombre }}</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12 col-md-2">
+                    <button type="button" class="btn btn-secondary btn-sm w-100" onclick="limpiarFiltros()">
+                        <i class="fas fa-times"></i> Limpiar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de equipos -->
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Equipo</th>
+                    <th>Categoría</th>
+                    <th>Stock</th>
+                    <th class="text-center">🛒 Compras</th>
+                    <th class="text-center">🧪 Calidad</th>
+                    <th class="text-center">⚡ Especial</th>
+                    <th>Ubicación Actual</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for equipo in equipos %}
+                <tr class="equipo-row" data-equipo-id="{{ equipo.id }}">
+                    <td>{{ equipo.codigo }}</td>
+                    <td>
+                        <strong>{{ equipo.nombre }}</strong>
+                        {% if equipo.descripcion %}
+                        <br><small class="text-muted">{{ equipo.descripcion[:50] }}...</small>
+                        {% endif %}
+                    </td>
+                    <td>{{ equipo.categoria.nombre if equipo.categoria else '-' }}</td>
+                    <td>
+                        <span class="badge bg-primary">{{ equipo.cantidad_total }}</span>
+                        <span class="badge bg-success">{{ equipo.cantidad_disponible }} disp.</span>
+                    </td>

@@ -37,111 +37,467 @@
     </ul>
 
     <div class="tab-content" id="configTabContent">
-        <!-- Tab Usuarios -->
-        <div class="tab-pane fade show active" id="usuarios" role="tabpanel">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h4>Gestión de Usuarios</h4>
-                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalNuevoUsuario">
-                    <i class="fas fa-plus"></i> Nuevo Usuario
-                </button>
-            </div>
-            
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Usuario</th>
-                            <th>Nombre</th>
-                            <th class="d-none d-md-table-cell">Email</th>
-                            <th>Rol</th>
-                            <th>Estado</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for usuario in usuarios %}
-                        <tr>
-                            <td>{{ usuario.username }}</td>
-                            <td>{{ usuario.nombre }}</td>
-                            <td class="d-none d-md-table-cell">{{ usuario.email }}</td>
-                            <td>
-                                <span class="badge bg-{{ 'danger' if usuario.rol == 'admin' else 'primary' }}">
-                                    {{ usuario.rol }}
-                                </span>
-                            </td>
-                            <td>
-                                {% if usuario.activo %}
-                                    <span class="badge bg-success">Activo</span>
-                                {% else %}
-                                    <span class="badge bg-secondary">Inactivo</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <button class="btn btn-sm btn-warning" onclick="editarUsuario({{ usuario.id }})">
-                                    <i class="fas fa-edit"></i>
+       <!-- Tab Usuarios (corregido) -->
+<div class="tab-pane fade show active" id="usuarios" role="tabpanel">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4>Gestión de Usuarios</h4>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalNuevoUsuario">
+            <i class="fas fa-plus"></i> Nuevo Usuario
+        </button>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Usuario</th>
+                    <th>Nombre</th>
+                    <th class="d-none d-md-table-cell">Email</th>
+                    <th>Rol</th>
+                    <th>Almacén Asignado</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for usuario in usuarios %}
+                <tr>
+                    <td>
+                        <strong>{{ usuario.username }}</strong>
+                        {% if usuario.id == current_user.id %}
+                        <span class="badge bg-info">Tú</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ usuario.nombre }}</td>
+                    <td class="d-none d-md-table-cell">{{ usuario.email }}</td>
+                    <td>
+                        {% if usuario.rol == 'admin' %}
+                            <span class="badge bg-danger">Administrador</span>
+                        {% elif usuario.rol == 'supervisor' %}
+                            <span class="badge bg-warning">Supervisor</span>
+                        {% else %}
+                            <span class="badge bg-primary">Usuario</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if usuario.area_trabajo %}
+                            <span class="badge bg-secondary">{{ usuario.area_trabajo }}</span>
+                        {% else %}
+                            <span class="text-muted">Sin asignar</span>
+                        {% endif %}
+                        {% if usuario.puede_prestar_todas_areas %}
+                            <span class="badge bg-success">Todos los almacenes</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if usuario.activo %}
+                            <span class="badge bg-success">Activo</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Inactivo</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <!-- Editar usuario -->
+                            <button class="btn btn-warning"
+                                    onclick="editarUsuario('{{ usuario.id }}', '{{ usuario.username }}', '{{ usuario.nombre }}', '{{ usuario.email }}', '{{ usuario.rol }}', '{{ usuario.area_trabajo or '' }}', {{ 'true' if usuario.puede_prestar_todas_areas else 'false' }}, {{ 'true' if usuario.activo else 'false' }})"
+                                    title="Editar usuario">
+                                <i class="fas fa-edit"></i>
+                            </button>
+
+                            <!-- Cambiar contraseña -->
+                            <button class="btn btn-info"
+                                    onclick="cambiarPassword('{{ usuario.id }}', '{{ usuario.nombre }}')"
+                                    title="Cambiar contraseña">
+                                <i class="fas fa-key"></i>
+                            </button>
+
+                            <!-- Activar/Desactivar -->
+                            {% if usuario.activo %}
+                                <button class="btn btn-secondary"
+                                        onclick="toggleUsuario('{{ usuario.id }}', '{{ usuario.nombre }}', false)"
+                                        title="Desactivar usuario"
+                                        {% if usuario.id == current_user.id %}disabled{% endif %}>
+                                    <i class="fas fa-ban"></i>
                                 </button>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+                            {% else %}
+                                <button class="btn btn-success"
+                                        onclick="toggleUsuario('{{ usuario.id }}', '{{ usuario.nombre }}', true)"
+                                        title="Activar usuario">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                            {% endif %}
+
+                            <!-- Eliminar usuario -->
+                            {% if usuario.id != current_user.id %}
+                            <button class="btn btn-danger"
+                                    onclick="eliminarUsuario('{{ usuario.id }}', '{{ usuario.nombre }}')"
+                                    title="Eliminar usuario">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Editar Usuario -->
+<div class="modal fade" id="modalEditarUsuario" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="/configuracion/usuarios/editar">
+                <input type="hidden" name="usuario_id" id="editUsuarioId">
+                <div class="modal-header">
+                    <h5 class="modal-title">Editar Usuario</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nombre de Usuario *</label>
+                        <input type="text" class="form-control" name="username" id="editUsername" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nombre Completo *</label>
+                        <input type="text" class="form-control" name="nombre" id="editNombre" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email *</label>
+                        <input type="email" class="form-control" name="email" id="editEmail" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Rol *</label>
+                            <select class="form-select" name="rol" id="editRol" required onchange="toggleEditAlmacenSelect()">
+                                <option value="usuario">Usuario</option>
+                                <option value="supervisor">Supervisor</option>
+                                <option value="admin">Administrador</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Área</label>
+                            <input type="text" class="form-control" name="area" id="editArea">
+                        </div>
+                    </div>
+                    <div class="mb-3" id="editAlmacenSelect">
+                        <label class="form-label">Almacén Asignado</label>
+                        <select class="form-select" name="area_trabajo" id="editAreaTrabajo">
+                            <option value="">Sin asignar</option>
+                            <option value="Almacén Compras">Almacén Compras</option>
+                            <option value="Almacén Calidad e Higiene">Almacén Calidad e Higiene</option>
+                            <option value="Almacén Equipo Especial">Almacén Equipo Especial</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="puede_prestar_todas_areas" id="editTodosAlmacenes">
+                            <label class="form-check-label" for="editTodosAlmacenes">
+                                Acceso a todos los almacenes
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="activo" id="editActivo">
+                            <label class="form-check-label" for="editActivo">
+                                Usuario activo
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+            </form>
         </div>
+    </div>
+</div>
+
+<!-- Modal Cambiar Contraseña -->
+<div class="modal fade" id="modalCambiarPassword" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="/configuracion/usuarios/cambiar-password">
+                <input type="hidden" name="usuario_id" id="passwordUsuarioId">
+                <div class="modal-header">
+                    <h5 class="modal-title">Cambiar Contraseña</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Cambiar contraseña para: <strong id="passwordUsuarioNombre"></strong></p>
+                    <div class="mb-3">
+                        <label class="form-label">Nueva Contraseña *</label>
+                        <input type="password" class="form-control" name="nueva_password" required minlength="6">
+                        <small class="text-muted">Mínimo 6 caracteres</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Confirmar Nueva Contraseña *</label>
+                        <input type="password" class="form-control" name="confirmar_password" required minlength="6">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning">Cambiar Contraseña</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Función para editar usuario
+function editarUsuario(id, username, nombre, email, rol, area_trabajo, puede_todas, activo) {
+    document.getElementById('editUsuarioId').value = id;
+    document.getElementById('editUsername').value = username;
+    document.getElementById('editNombre').value = nombre;
+    document.getElementById('editEmail').value = email;
+    document.getElementById('editRol').value = rol;
+    document.getElementById('editArea').value = '';
+    document.getElementById('editAreaTrabajo').value = area_trabajo;
+    document.getElementById('editTodosAlmacenes').checked = puede_todas;
+    document.getElementById('editActivo').checked = activo;
+
+    toggleEditAlmacenSelect();
+    new bootstrap.Modal(document.getElementById('modalEditarUsuario')).show();
+}
+
+// Función para cambiar contraseña
+function cambiarPassword(id, nombre) {
+    document.getElementById('passwordUsuarioId').value = id;
+    document.getElementById('passwordUsuarioNombre').textContent = nombre;
+    new bootstrap.Modal(document.getElementById('modalCambiarPassword')).show();
+}
+
+// Función para activar/desactivar usuario
+function toggleUsuario(id, nombre, activar) {
+    const accion = activar ? 'activar' : 'desactivar';
+    if (confirm(`¿Estás seguro de que quieres ${accion} al usuario ${nombre}?`)) {
+        fetch(`/configuracion/usuarios/${id}/toggle`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({activo: activar})
+        }).then(() => {
+            location.reload();
+        });
+    }
+}
+
+// Función para eliminar usuario
+function eliminarUsuario(id, nombre) {
+    if (confirm(`¿Estás seguro de que quieres eliminar al usuario ${nombre}? Esta acción no se puede deshacer.`)) {
+        fetch(`/configuracion/usuarios/${id}/eliminar`, {
+            method: 'POST'
+        }).then(() => {
+            location.reload();
+        });
+    }
+}
+
+function toggleEditAlmacenSelect() {
+    const rol = document.getElementById('editRol').value;
+    const almacenDiv = document.getElementById('editAlmacenSelect');
+    const todosCheck = document.getElementById('editTodosAlmacenes');
+
+    if (rol === 'admin' || rol === 'supervisor') {
+        almacenDiv.style.display = 'block';
+        todosCheck.disabled = false;
+    } else {
+        almacenDiv.style.display = 'block';
+        todosCheck.checked = false;
+        todosCheck.disabled = true;
+    }
+}
+
+// Validar formulario de cambio de contraseña
+document.addEventListener('DOMContentLoaded', function() {
+    const formPassword = document.querySelector('#modalCambiarPassword form');
+    if (formPassword) {
+        formPassword.addEventListener('submit', function(e) {
+            const nueva = document.querySelector('input[name="nueva_password"]').value;
+            const confirmar = document.querySelector('input[name="confirmar_password"]').value;
+
+            if (nueva !== confirmar) {
+                e.preventDefault();
+                alert('Las contraseñas no coinciden');
+            }
+        });
+    }
+});
+</script>
 
         <!-- Tab Categorías -->
         <div class="tab-pane fade" id="categorias" role="tabpanel">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h4>Categorías de Equipo</h4>
-                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaCategoria">
-                    <i class="fas fa-plus"></i> Nueva Categoría
-                </button>
-            </div>
-            
-            <div class="row">
-                {% for categoria in categorias %}
-                <div class="col-12 col-md-6 col-lg-4 mb-3">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="card-title">{{ categoria.nombre }}</h5>
-                            <p class="card-text text-muted">{{ categoria.descripcion or 'Sin descripción' }}</p>
-                            <p class="mb-0">
-                                <small>{{ categoria.equipos.count() }} equipos en esta categoría</small>
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4>Categorías de Equipo</h4>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaCategoria">
+            <i class="fas fa-plus"></i> Nueva Categoría
+        </button>
+    </div>
 
-        <!-- Tab Ubicaciones -->
-        <div class="tab-pane fade" id="ubicaciones" role="tabpanel">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h4>Ubicaciones</h4>
-                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaUbicacion">
-                    <i class="fas fa-plus"></i> Nueva Ubicación
-                </button>
-            </div>
-            
-            <div class="row">
-                {% for ubicacion in ubicaciones %}
-                <div class="col-12 col-md-6 mb-3">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="card-title">{{ ubicacion.nombre }}</h5>
-                            <p class="card-text text-muted">{{ ubicacion.descripcion or 'Sin descripción' }}</p>
-                            {% if ubicacion.responsable %}
-                            <p class="mb-1"><strong>Responsable:</strong> {{ ubicacion.responsable }}</p>
+    <div class="row">
+        {% for categoria in categorias %}
+        <div class="col-12 col-md-6 col-lg-4 mb-3">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <h5 class="card-title">{{ categoria.nombre }}</h5>
+                            <p class="card-text text-muted small">{{ categoria.descripcion or 'Sin descripción' }}</p>
+                            <div class="d-flex align-items-center">
+                                <span class="badge bg-primary me-2">{{ categoria.equipos.count() }} equipos</span>
+                                {% if categoria.equipos.count() == 0 %}
+                                    <span class="badge bg-success">Disponible para eliminar</span>
+                                {% else %}
+                                    <span class="badge bg-warning">En uso</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="btn-group-vertical btn-group-sm" role="group">
+                            <button class="btn btn-outline-warning btn-sm"
+                                    onclick="editarCategoria('{{ categoria.id }}', '{{ categoria.nombre }}', '{{ categoria.descripcion or '' }}')"
+                                    title="Editar categoría">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            {% if categoria.equipos.count() == 0 %}
+                            <button class="btn btn-outline-danger btn-sm"
+                                    onclick="eliminarCategoria('{{ categoria.id }}', '{{ categoria.nombre }}')"
+                                    title="Eliminar categoría">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            {% else %}
+                            <button class="btn btn-outline-secondary btn-sm" disabled
+                                    title="No se puede eliminar: tiene {{ categoria.equipos.count() }} equipos">
+                                <i class="fas fa-ban"></i>
+                            </button>
                             {% endif %}
-                            <p class="mb-0">
-                                <small>{{ ubicacion.equipos.count() }} equipos en esta ubicación</small>
-                            </p>
                         </div>
                     </div>
                 </div>
-                {% endfor %}
             </div>
         </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Tab Ubicaciones (reemplazar sección completa) -->
+<div class="tab-pane fade" id="ubicaciones" role="tabpanel">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4>Ubicaciones</h4>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaUbicacion">
+            <i class="fas fa-plus"></i> Nueva Ubicación
+        </button>
+    </div>
+
+    <div class="row">
+        {% for ubicacion in ubicaciones %}
+        <div class="col-12 col-md-6 mb-3">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <h5 class="card-title">{{ ubicacion.nombre }}</h5>
+                            <p class="card-text text-muted small">{{ ubicacion.descripcion or 'Sin descripción' }}</p>
+                            {% if ubicacion.responsable %}
+                            <p class="mb-1 small"><strong>Responsable:</strong> {{ ubicacion.responsable }}</p>
+                            {% endif %}
+                            <div class="d-flex align-items-center">
+                                <span class="badge bg-info me-2">{{ ubicacion.equipos.count() }} equipos</span>
+                                {% if ubicacion.equipos.count() == 0 %}
+                                    <span class="badge bg-success">Disponible para eliminar</span>
+                                {% else %}
+                                    <span class="badge bg-warning">En uso</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="btn-group-vertical btn-group-sm" role="group">
+                            <button class="btn btn-outline-warning btn-sm"
+                                    onclick="editarUbicacion('{{ ubicacion.id }}', '{{ ubicacion.nombre }}', '{{ ubicacion.descripcion or '' }}', '{{ ubicacion.responsable or '' }}')"
+                                    title="Editar ubicación">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            {% if ubicacion.equipos.count() == 0 %}
+                            <button class="btn btn-outline-danger btn-sm"
+                                    onclick="eliminarUbicacion('{{ ubicacion.id }}', '{{ ubicacion.nombre }}')"
+                                    title="Eliminar ubicación">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            {% else %}
+                            <button class="btn btn-outline-secondary btn-sm" disabled
+                                    title="No se puede eliminar: tiene {{ ubicacion.equipos.count() }} equipos">
+                                <i class="fas fa-ban"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Modal Editar Categoría -->
+<div class="modal fade" id="modalEditarCategoria" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="/configuracion/categorias/editar">
+                <input type="hidden" name="categoria_id" id="editCategoriaId">
+                <div class="modal-header">
+                    <h5 class="modal-title">Editar Categoría</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nombre *</label>
+                        <input type="text" class="form-control" name="nombre" id="editCategoriaNombre" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Descripción</label>
+                        <textarea class="form-control" name="descripcion" id="editCategoriaDescripcion" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+        <!-- Tab Ubicaciones -->
+       <div class="modal fade" id="modalEditarCategoria" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="/configuracion/categorias/editar">
+                <input type="hidden" name="categoria_id" id="editCategoriaId">
+                <div class="modal-header">
+                    <h5 class="modal-title">Editar Categoría</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nombre *</label>
+                        <input type="text" class="form-control" name="nombre" id="editCategoriaNombre" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Descripción</label>
+                        <textarea class="form-control" name="descripcion" id="editCategoriaDescripcion" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
         <!-- Tab Sistema -->
         <div class="tab-pane fade" id="sistema" role="tabpanel">
@@ -286,4 +642,122 @@
         </div>
     </div>
 </div>
+    <!-- Modal Editar Categoría -->
+<div class="modal fade" id="modalEditarCategoria" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="/configuracion/categorias/editar">
+                <input type="hidden" name="categoria_id" id="editCategoriaId">
+                <div class="modal-header">
+                    <h5 class="modal-title">Editar Categoría</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nombre *</label>
+                        <input type="text" class="form-control" name="nombre" id="editCategoriaNombre" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Descripción</label>
+                        <textarea class="form-control" name="descripcion" id="editCategoriaDescripcion" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Editar Ubicación -->
+<div class="modal fade" id="modalEditarUbicacion" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="/configuracion/ubicaciones/editar">
+                <input type="hidden" name="ubicacion_id" id="editUbicacionId">
+                <div class="modal-header">
+                    <h5 class="modal-title">Editar Ubicación</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nombre *</label>
+                        <input type="text" class="form-control" name="nombre" id="editUbicacionNombre" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Descripción</label>
+                        <textarea class="form-control" name="descripcion" id="editUbicacionDescripcion" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Responsable</label>
+                        <input type="text" class="form-control" name="responsable" id="editUbicacionResponsable">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Funciones para categorías
+function editarCategoria(id, nombre, descripcion) {
+    document.getElementById('editCategoriaId').value = id;
+    document.getElementById('editCategoriaNombre').value = nombre;
+    document.getElementById('editCategoriaDescripcion').value = descripcion;
+    new bootstrap.Modal(document.getElementById('modalEditarCategoria')).show();
+}
+
+function eliminarCategoria(id, nombre) {
+    if (confirm(`¿Estás seguro de que quieres eliminar la categoría "${nombre}"? Esta acción no se puede deshacer.`)) {
+        fetch(`/configuracion/categorias/${id}/eliminar`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        }).then(response => {
+            if (response.ok) {
+                location.reload();
+            } else {
+                return response.json().then(data => {
+                    alert('Error: ' + data.error);
+                });
+            }
+        });
+    }
+}
+
+// Funciones para ubicaciones
+function editarUbicacion(id, nombre, descripcion, responsable) {
+    document.getElementById('editUbicacionId').value = id;
+    document.getElementById('editUbicacionNombre').value = nombre;
+    document.getElementById('editUbicacionDescripcion').value = descripcion;
+    document.getElementById('editUbicacionResponsable').value = responsable;
+    new bootstrap.Modal(document.getElementById('modalEditarUbicacion')).show();
+}
+
+function eliminarUbicacion(id, nombre) {
+    if (confirm(`¿Estás seguro de que quieres eliminar la ubicación "${nombre}"? Esta acción no se puede deshacer.`)) {
+        fetch(`/configuracion/ubicaciones/${id}/eliminar`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        }).then(response => {
+            if (response.ok) {
+                location.reload();
+            } else {
+                return response.json().then(data => {
+                    alert('Error: ' + data.error);
+                });
+            }
+        });
+    }
+}
+</script>
 {% endblock %}

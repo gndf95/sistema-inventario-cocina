@@ -4,8 +4,16 @@
 
 {% block content %}
 <div class="container-fluid px-2 px-md-4">
-    <h1 class="h3 h2-md mb-4">Dashboard</h1>
-    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 h2-md">Dashboard</h1>
+        <div class="text-muted small">
+            <i class="fas fa-user"></i> {{ current_user.nombre }}
+            {% if current_user.area_trabajo %}
+                | <i class="fas fa-building"></i> {{ current_user.area_trabajo }}
+            {% endif %}
+        </div>
+    </div>
+
     <!-- Tarjetas de estadísticas - Responsivas -->
     <div class="row g-2 mb-4">
         <div class="col-6 col-md-3">
@@ -15,13 +23,16 @@
                         <div>
                             <h6 class="card-title mb-1">Tipos de Equipo</h6>
                             <h3 class="mb-0">{{ total_tipos }}</h3>
+                            {% if current_user.area_trabajo and current_user.rol not in ['admin', 'supervisor'] %}
+                            <small class="opacity-75">En {{ current_user.area_trabajo }}</small>
+                            {% endif %}
                         </div>
                         <i class="fas fa-boxes fa-2x opacity-50 d-none d-sm-block"></i>
                     </div>
                 </div>
             </div>
         </div>
-        
+
         <div class="col-6 col-md-3">
             <div class="card text-white bg-info h-100">
                 <div class="card-body p-3">
@@ -29,13 +40,14 @@
                         <div>
                             <h6 class="card-title mb-1">Total Unidades</h6>
                             <h3 class="mb-0">{{ total_unidades }}</h3>
+                            <small class="opacity-75">Equipos registrados</small>
                         </div>
                         <i class="fas fa-calculator fa-2x opacity-50 d-none d-sm-block"></i>
                     </div>
                 </div>
             </div>
         </div>
-        
+
         <div class="col-6 col-md-3">
             <div class="card text-white bg-success h-100">
                 <div class="card-body p-3">
@@ -43,13 +55,14 @@
                         <div>
                             <h6 class="card-title mb-1">Disponibles</h6>
                             <h3 class="mb-0">{{ unidades_disponibles }}</h3>
+                            <small class="opacity-75">Listos para préstamo</small>
                         </div>
                         <i class="fas fa-check-circle fa-2x opacity-50 d-none d-sm-block"></i>
                     </div>
                 </div>
             </div>
         </div>
-        
+
         <div class="col-6 col-md-3">
             <div class="card text-white bg-warning h-100">
                 <div class="card-body p-3">
@@ -57,6 +70,7 @@
                         <div>
                             <h6 class="card-title mb-1">Préstamos</h6>
                             <h3 class="mb-0">{{ prestamos_activos }}</h3>
+                            <small class="opacity-75">Activos ahora</small>
                         </div>
                         <i class="fas fa-hand-holding fa-2x opacity-50 d-none d-sm-block"></i>
                     </div>
@@ -69,15 +83,22 @@
     <div class="mb-4">
         <h5 class="mb-3">Acciones Rápidas</h5>
         <div class="d-grid gap-2 d-md-flex">
+            {% if current_user.rol in ['admin', 'supervisor'] %}
             <a href="{{ url_for('nuevo_equipo') }}" class="btn btn-primary">
                 <i class="fas fa-plus-circle"></i> Nuevo Equipo
             </a>
+            {% endif %}
             <a href="{{ url_for('nuevo_prestamo') }}" class="btn btn-success">
                 <i class="fas fa-hand-holding"></i> Nuevo Préstamo
             </a>
             <a href="{{ url_for('prestamos') }}" class="btn btn-info text-white">
                 <i class="fas fa-list"></i> Ver Préstamos
             </a>
+            {% if current_user.rol == 'admin' %}
+            <a href="{{ url_for('reportes') }}" class="btn btn-secondary">
+                <i class="fas fa-chart-bar"></i> Reportes
+            </a>
+            {% endif %}
         </div>
     </div>
 
@@ -88,25 +109,44 @@
         <div class="col-12 col-lg-6">
             <div class="card border-warning">
                 <div class="card-header bg-warning text-dark">
-                    <h5 class="mb-0"><i class="fas fa-exclamation-triangle"></i> Stock Bajo</h5>
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle"></i> Stock Bajo
+                        <span class="badge bg-dark">{{ equipos_alerta|length }}</span>
+                    </h5>
                 </div>
                 <div class="card-body p-0">
                     <div class="list-group list-group-flush">
                         {% for equipo in equipos_alerta[:5] %}
-                        <div class="list-group-item">
+                        <a href="{{ url_for('ver_equipo', id=equipo.id) }}" class="list-group-item list-group-item-action">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
                                     <h6 class="mb-1">{{ equipo.nombre }}</h6>
-                                    <small class="text-muted">{{ equipo.codigo }}</small>
+                                    <small class="text-muted">
+                                        {{ equipo.codigo }}
+                                        {% if equipo.ubicacion %}
+                                        | {{ equipo.ubicacion.nombre }}
+                                        {% endif %}
+                                    </small>
                                 </div>
                                 <div class="text-end">
                                     <span class="badge bg-warning text-dark">
                                         {{ equipo.cantidad_disponible }}/{{ equipo.cantidad_total }}
                                     </span>
+                                    <br>
+                                    <small class="text-danger">
+                                        Mín: {{ equipo.cantidad_minima }}
+                                    </small>
                                 </div>
                             </div>
-                        </div>
+                        </a>
                         {% endfor %}
+                        {% if equipos_alerta|length > 5 %}
+                        <div class="list-group-item text-center">
+                            <a href="{{ url_for('equipos') }}?filtro=alerta" class="btn btn-sm btn-warning">
+                                Ver todos ({{ equipos_alerta|length }})
+                            </a>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -118,7 +158,10 @@
         <div class="col-12 col-lg-6">
             <div class="card border-danger">
                 <div class="card-header bg-danger text-white">
-                    <h5 class="mb-0"><i class="fas fa-clock"></i> Préstamos Vencidos</h5>
+                    <h5 class="mb-0">
+                        <i class="fas fa-clock"></i> Préstamos Vencidos
+                        <span class="badge bg-dark">{{ prestamos_vencidos|length }}</span>
+                    </h5>
                 </div>
                 <div class="card-body p-0">
                     <div class="list-group list-group-flush">
@@ -127,12 +170,74 @@
                             <div class="d-flex justify-content-between align-items-start">
                                 <div class="flex-grow-1">
                                     <h6 class="mb-1">{{ prestamo.responsable_nombre }}</h6>
-                                    <p class="mb-1 small">{{ prestamo.total_items }} items - {{ prestamo.folio }}</p>
+                                    <p class="mb-1 small text-muted">
+                                        <i class="fas fa-building"></i> {{ prestamo.responsable_area or 'Sin área' }}
+                                        {% if prestamo.responsable_telefono %}
+                                        | <i class="fas fa-phone"></i> {{ prestamo.responsable_telefono }}
+                                        {% endif %}
+                                    </p>
+                                    <p class="mb-1 small">
+                                        <strong>{{ prestamo.total_items }} items</strong> - {{ prestamo.folio }}
+                                        {% if prestamo.usuario_prestamo %}
+                                        <br><span class="text-info">
+                                            <i class="fas fa-user"></i> Prestó: {{ prestamo.usuario_prestamo.nombre }}
+                                        </span>
+                                        {% endif %}
+                                    </p>
                                     <small class="text-danger">
-                                        Vencido hace {{ (datetime.now() - prestamo.fecha_devolucion_esperada).days }} días
+                                        <i class="fas fa-exclamation-circle"></i>
+                                        Vencido hace {{ (datetime.now().date() - prestamo.fecha_devolucion_esperada.date()).days }} días
+                                        ({{ prestamo.fecha_devolucion_esperada.strftime('%d/%m/%Y') }})
                                     </small>
                                 </div>
                                 <span class="badge bg-danger">Ver</span>
+                            </div>
+                        </a>
+                        {% endfor %}
+                        {% if prestamos_vencidos|length > 5 %}
+                        <div class="list-group-item text-center">
+                            <a href="{{ url_for('prestamos') }}?filtro=vencidos" class="btn btn-sm btn-danger">
+                                Ver todos ({{ prestamos_vencidos|length }})
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Préstamos por vencer -->
+        {% if prestamos_por_vencer %}
+        <div class="col-12 col-lg-6">
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="fas fa-clock"></i> Por Vencer (3 días)
+                        <span class="badge bg-dark">{{ prestamos_por_vencer|length }}</span>
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for prestamo in prestamos_por_vencer[:3] %}
+                        <a href="{{ url_for('ver_prestamo', id=prestamo.id) }}" class="list-group-item list-group-item-action">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">{{ prestamo.responsable_nombre }}</h6>
+                                    <p class="mb-1 small">{{ prestamo.total_items }} items - {{ prestamo.folio }}</p>
+                                    {% if prestamo.usuario_prestamo %}
+                                    <small class="text-info">
+                                        <i class="fas fa-user"></i> {{ prestamo.usuario_prestamo.nombre }}
+                                    </small>
+                                    {% endif %}
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-warning text-dark">
+                                        {{ (prestamo.fecha_devolucion_esperada.date() - datetime.now().date()).days }} días
+                                    </span>
+                                    <br>
+                                    <small>{{ prestamo.fecha_devolucion_esperada.strftime('%d/%m') }}</small>
+                                </div>
                             </div>
                         </a>
                         {% endfor %}
@@ -145,38 +250,86 @@
 
     <!-- Préstamos recientes -->
     <div class="mt-4">
-        <h5 class="mb-3">Préstamos Recientes</h5>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Préstamos Recientes</h5>
+            <a href="{{ url_for('prestamos') }}" class="btn btn-sm btn-outline-primary">
+                Ver todos <i class="fas fa-arrow-right"></i>
+            </a>
+        </div>
+
         <div class="table-responsive">
-            <table class="table table-sm">
+            <table class="table table-sm table-hover">
                 <thead>
                     <tr>
                         <th>Folio</th>
                         <th>Responsable</th>
+                        <th class="d-none d-sm-table-cell">Usuario Prestó</th>
                         <th class="d-none d-sm-table-cell">Items</th>
+                        <th>Fecha</th>
                         <th>Estado</th>
+                        <th>Días</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for prestamo in prestamos_recientes %}
                     <tr onclick="window.location='{{ url_for('ver_prestamo', id=prestamo.id) }}'" style="cursor: pointer;">
-                        <td>{{ prestamo.folio }}</td>
                         <td>
-                            {{ prestamo.responsable_nombre }}<br>
-                            <small class="text-muted d-sm-none">{{ prestamo.total_items }} items</small>
+                            <strong>{{ prestamo.folio }}</strong>
                         </td>
-                        <td class="d-none d-sm-table-cell">{{ prestamo.total_items }}</td>
+                        <td>
+                            <div>
+                                {{ prestamo.responsable_nombre }}
+                                <br>
+                                <small class="text-muted">
+                                    {{ prestamo.responsable_area or 'Sin área' }}
+                                    <span class="d-sm-none">| {{ prestamo.total_items }} items</span>
+                                </small>
+                            </div>
+                        </td>
+                        <td class="d-none d-sm-table-cell">
+                            {% if prestamo.usuario_prestamo %}
+                                <small class="text-info">
+                                    <i class="fas fa-user"></i> {{ prestamo.usuario_prestamo.nombre }}
+                                </small>
+                            {% else %}
+                                <small class="text-muted">No registrado</small>
+                            {% endif %}
+                        </td>
+                        <td class="d-none d-sm-table-cell">
+                            <span class="badge bg-info">{{ prestamo.total_items }}</span>
+                        </td>
+                        <td>
+                            <div>
+                                {{ prestamo.fecha_prestamo.strftime('%d/%m') }}
+                                <br>
+                                <small class="text-muted">{{ prestamo.fecha_prestamo.strftime('%H:%M') }}</small>
+                            </div>
+                        </td>
                         <td>
                             {% if prestamo.estado == 'activo' %}
-                                {% if prestamo.vencido %}
+                                {% set dias_restantes = (prestamo.fecha_devolucion_esperada.date() - datetime.now().date()).days %}
+                                {% if dias_restantes < 0 %}
                                     <span class="badge bg-danger">Vencido</span>
+                                    <br><small class="text-danger">{{ -dias_restantes }} días</small>
+                                {% elif dias_restantes <= 3 %}
+                                    <span class="badge bg-warning">Por vencer</span>
+                                    <br><small class="text-warning">{{ dias_restantes }} días</small>
                                 {% else %}
-                                    <span class="badge bg-warning">Activo</span>
+                                    <span class="badge bg-success">Activo</span>
+                                    <br><small class="text-muted">{{ dias_restantes }} días</small>
                                 {% endif %}
                             {% elif prestamo.estado == 'parcial' %}
                                 <span class="badge bg-info">Parcial</span>
+                                <br><small class="text-muted">{{ prestamo.items_pendientes }} pendientes</small>
                             {% else %}
                                 <span class="badge bg-success">Devuelto</span>
+                                {% if prestamo.fecha_devolucion_real %}
+                                <br><small class="text-success">{{ prestamo.fecha_devolucion_real.strftime('%d/%m') }}</small>
+                                {% endif %}
                             {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">{{ prestamo.dias_prestamo }}</span>
                         </td>
                     </tr>
                     {% endfor %}
@@ -184,6 +337,45 @@
             </table>
         </div>
     </div>
+
+    <!-- Actividad reciente del usuario actual -->
+    {% if mis_prestamos_recientes %}
+    <div class="mt-4">
+        <h5 class="mb-3">
+            <i class="fas fa-user"></i> Mis Préstamos Recientes
+        </h5>
+        <div class="row">
+            {% for prestamo in mis_prestamos_recientes %}
+            <div class="col-md-6 col-lg-4 mb-3">
+                <div class="card border-info">
+                    <div class="card-body">
+                        <h6 class="card-title">
+                            {{ prestamo.folio }}
+                            {% if prestamo.estado == 'activo' %}
+                                {% if prestamo.vencido %}
+                                    <span class="badge bg-danger">Vencido</span>
+                                {% else %}
+                                    <span class="badge bg-success">Activo</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge bg-secondary">{{ prestamo.estado|title }}</span>
+                            {% endif %}
+                        </h6>
+                        <p class="card-text small">
+                            <strong>Para:</strong> {{ prestamo.responsable_nombre }}<br>
+                            <strong>Items:</strong> {{ prestamo.total_items }}<br>
+                            <strong>Fecha:</strong> {{ prestamo.fecha_prestamo.strftime('%d/%m/%Y') }}
+                        </p>
+                        <a href="{{ url_for('ver_prestamo', id=prestamo.id) }}" class="btn btn-sm btn-info">
+                            Ver detalles
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <!-- CSS adicional para móvil -->
@@ -195,6 +387,17 @@
     .card-title {
         font-size: 0.875rem;
     }
+    .table-responsive {
+        font-size: 0.8rem;
+    }
+}
+
+.list-group-item-action:hover {
+    background-color: rgba(0,0,0,0.05);
+}
+
+.badge {
+    font-size: 0.7em;
 }
 </style>
 {% endblock %}

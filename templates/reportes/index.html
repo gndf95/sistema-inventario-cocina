@@ -5,7 +5,7 @@
 {% block content %}
 <div class="container-fluid px-2 px-md-4">
     <h1 class="h3 h2-md mb-4">Reportes</h1>
-    
+
     <div class="row g-3">
         <!-- Reporte de Historial Completo -->
         <div class="col-12 col-md-6 col-lg-4">
@@ -18,6 +18,12 @@
                     <p class="card-text">
                         Consulta todos los préstamos realizados con filtros por fecha, responsable y equipo.
                     </p>
+                    <div class="mb-3">
+                        <small class="text-muted">
+                            <i class="fas fa-chart-line"></i> Total de préstamos: <strong>{{ total_prestamos }}</strong><br>
+                            <i class="fas fa-calendar"></i> Este mes: <strong>{{ prestamos_este_mes }}</strong>
+                        </small>
+                    </div>
                     <a href="{{ url_for('historial_completo') }}" class="btn btn-primary">
                         <i class="fas fa-search"></i> Ver Historial
                     </a>
@@ -36,6 +42,12 @@
                     <p class="card-text">
                         Estado actual de todos los equipos: disponibles, prestados, en mantenimiento.
                     </p>
+                    <div class="mb-3">
+                        <small class="text-muted">
+                            <i class="fas fa-boxes"></i> Total tipos: <strong>{{ total_tipos_equipo }}</strong><br>
+                            <i class="fas fa-check-circle"></i> Disponibles: <strong>{{ total_disponibles }}</strong>
+                        </small>
+                    </div>
                     <a href="{{ url_for('equipos') }}" class="btn btn-success">
                         <i class="fas fa-boxes"></i> Ver Inventario
                     </a>
@@ -54,9 +66,15 @@
                     <p class="card-text">
                         Lista de préstamos que excedieron su fecha de devolución esperada.
                     </p>
-                    <button class="btn btn-danger" onclick="filtrarVencidos()">
+                    <div class="mb-3">
+                        <small class="text-muted">
+                            <i class="fas fa-clock"></i> Vencidos: <strong class="text-danger">{{ prestamos_vencidos_count }}</strong><br>
+                            <i class="fas fa-warning"></i> Por vencer (3 días): <strong class="text-warning">{{ prestamos_por_vencer }}</strong>
+                        </small>
+                    </div>
+                    <a href="{{ url_for('prestamos') }}?filtro=vencidos" class="btn btn-danger">
                         <i class="fas fa-clock"></i> Ver Vencidos
-                    </button>
+                    </a>
                 </div>
             </div>
         </div>
@@ -72,6 +90,12 @@
                     <p class="card-text">
                         Resumen estadístico del uso de equipos, préstamos por área y más.
                     </p>
+                    <div class="mb-3">
+                        <small class="text-muted">
+                            <i class="fas fa-percentage"></i> Tasa devolución: <strong>{{ tasa_devolucion }}%</strong><br>
+                            <i class="fas fa-calendar-day"></i> Promedio días: <strong>{{ promedio_dias }}</strong>
+                        </small>
+                    </div>
                     <button class="btn btn-info text-white" data-bs-toggle="modal" data-bs-target="#modalEstadisticas">
                         <i class="fas fa-chart-bar"></i> Ver Estadísticas
                     </button>
@@ -90,31 +114,77 @@
                     <p class="card-text">
                         Ranking de los equipos con mayor demanda y rotación.
                     </p>
-                    <button class="btn btn-warning" onclick="verTopEquipos()">
-                        <i class="fas fa-medal"></i> Ver Top
+                    <div class="mb-3">
+                        <small class="text-muted">
+                            {% if top_equipo %}
+                            <i class="fas fa-crown"></i> Top #1: <strong>{{ top_equipo.nombre }}</strong><br>
+                            <i class="fas fa-counter"></i> Prestado: <strong>{{ top_equipo.veces_prestado }} veces</strong>
+                            {% else %}
+                            <i class="fas fa-info-circle"></i> Sin datos suficientes
+                            {% endif %}
+                        </small>
+                    </div>
+                    <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#modalTopEquipos">
+                        <i class="fas fa-medal"></i> Ver Top 10
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- Exportar Datos -->
+        <!-- Usuarios Más Activos -->
         <div class="col-12 col-md-6 col-lg-4">
             <div class="card h-100">
                 <div class="card-body">
                     <div class="text-center mb-3">
-                        <i class="fas fa-download fa-3x text-secondary"></i>
+                        <i class="fas fa-users fa-3x text-secondary"></i>
                     </div>
-                    <h5 class="card-title">Exportar Datos</h5>
+                    <h5 class="card-title">Usuarios Más Activos</h5>
                     <p class="card-text">
-                        Descarga los datos en formato Excel o PDF para análisis externos.
+                        Ranking de los usuarios que más préstamos han realizado.
                     </p>
-                    <div class="btn-group" role="group">
-                        <button class="btn btn-secondary" onclick="exportarExcel()">
-                            <i class="fas fa-file-excel"></i> Excel
-                        </button>
-                        <button class="btn btn-secondary" onclick="exportarPDF()">
-                            <i class="fas fa-file-pdf"></i> PDF
-                        </button>
+                    <div class="mb-3">
+                        <small class="text-muted">
+                            {% if top_usuario %}
+                            <i class="fas fa-user-crown"></i> Top #1: <strong>{{ top_usuario.nombre }}</strong><br>
+                            <i class="fas fa-hand-holding"></i> Préstamos: <strong>{{ top_usuario.total_prestamos }}</strong>
+                            {% else %}
+                            <i class="fas fa-info-circle"></i> Sin datos suficientes
+                            {% endif %}
+                        </small>
+                    </div>
+                    <button class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#modalTopUsuarios">
+                        <i class="fas fa-user-chart"></i> Ver Top 10
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resumen rápido -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-chart-line"></i> Resumen del Sistema
+                    </h5>
+                    <div class="row text-center">
+                        <div class="col-6 col-md-3">
+                            <h4 class="text-primary">{{ total_tipos_equipo }}</h4>
+                            <small class="text-muted">Tipos de Equipo</small>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <h4 class="text-success">{{ total_prestamos }}</h4>
+                            <small class="text-muted">Total Préstamos</small>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <h4 class="text-warning">{{ prestamos_activos_count }}</h4>
+                            <small class="text-muted">Préstamos Activos</small>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <h4 class="text-info">{{ total_usuarios_activos }}</h4>
+                            <small class="text-muted">Usuarios Activos</small>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -122,52 +192,162 @@
     </div>
 </div>
 
-<!-- Modal de Estadísticas -->
+<!-- Modal de Estadísticas Generales -->
 <div class="modal fade" id="modalEstadisticas" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Estadísticas Generales</h5>
+                <h5 class="modal-title">
+                    <i class="fas fa-chart-pie"></i> Estadísticas Generales
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <div class="card bg-primary text-white">
-                            <div class="card-body">
+                        <div class="card bg-primary text-white h-100">
+                            <div class="card-body text-center">
+                                <i class="fas fa-hand-holding fa-2x mb-2"></i>
                                 <h5>Total de Préstamos</h5>
-                                <h2>{{ prestamos_total if prestamos_total else "45" }}</h2>
-                                <small>Este mes</small>
+                                <h2>{{ total_prestamos }}</h2>
+                                <small>Desde el inicio del sistema</small>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <div class="card bg-success text-white">
-                            <div class="card-body">
+                        <div class="card bg-success text-white h-100">
+                            <div class="card-body text-center">
+                                <i class="fas fa-undo fa-2x mb-2"></i>
                                 <h5>Tasa de Devolución</h5>
-                                <h2>92%</h2>
-                                <small>A tiempo</small>
+                                <h2>{{ tasa_devolucion }}%</h2>
+                                <small>Préstamos devueltos a tiempo</small>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <div class="card bg-warning text-white">
-                            <div class="card-body">
-                                <h5>Equipo Más Prestado</h5>
-                                <h2>Sartén 28cm</h2>
-                                <small>15 veces este mes</small>
+                        <div class="card bg-warning text-white h-100">
+                            <div class="card-body text-center">
+                                <i class="fas fa-calendar-days fa-2x mb-2"></i>
+                                <h5>Promedio Días</h5>
+                                <h2>{{ promedio_dias }}</h2>
+                                <small>Duración promedio de préstamos</small>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <div class="card bg-info text-white">
-                            <div class="card-body">
-                                <h5>Área Más Activa</h5>
-                                <h2>Eventos</h2>
-                                <small>32 préstamos</small>
+                        <div class="card bg-info text-white h-100">
+                            <div class="card-body text-center">
+                                <i class="fas fa-calendar-month fa-2x mb-2"></i>
+                                <h5>Este Mes</h5>
+                                <h2>{{ prestamos_este_mes }}</h2>
+                                <small>Préstamos realizados</small>
                             </div>
                         </div>
                     </div>
+                </div>
+
+                <div class="mt-4">
+                    <h6>Préstamos por Estado</h6>
+                    <div class="row">
+                        <div class="col-4 text-center">
+                            <div class="badge bg-success p-2">
+                                Devueltos<br>
+                                <strong>{{ prestamos_devueltos_count }}</strong>
+                            </div>
+                        </div>
+                        <div class="col-4 text-center">
+                            <div class="badge bg-warning p-2">
+                                Activos<br>
+                                <strong>{{ prestamos_activos_count }}</strong>
+                            </div>
+                        </div>
+                        <div class="col-4 text-center">
+                            <div class="badge bg-danger p-2">
+                                Vencidos<br>
+                                <strong>{{ prestamos_vencidos_count }}</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" onclick="exportarEstadisticas()">
+                    <i class="fas fa-download"></i> Exportar
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Top Equipos -->
+<div class="modal fade" id="modalTopEquipos" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-trophy"></i> Top 10 Equipos Más Prestados
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Pos.</th>
+                                <th>Equipo</th>
+                                <th>Código</th>
+                                <th>Veces Prestado</th>
+                                <th>Días Total</th>
+                                <th>Promedio</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaTopEquipos">
+                            <tr>
+                                <td colspan="6" class="text-center">
+                                    <i class="fas fa-spinner fa-spin"></i> Cargando datos...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Top Usuarios -->
+<div class="modal fade" id="modalTopUsuarios" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-users"></i> Top 10 Usuarios Más Activos
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Pos.</th>
+                                <th>Usuario</th>
+                                <th>Área</th>
+                                <th>Total Préstamos</th>
+                                <th>Activos</th>
+                                <th>Tasa Devolución</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaTopUsuarios">
+                            <tr>
+                                <td colspan="6" class="text-center">
+                                    <i class="fas fa-spinner fa-spin"></i> Cargando datos...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -175,22 +355,70 @@
 </div>
 
 <script>
-function filtrarVencidos() {
-    window.location.href = "{{ url_for('prestamos') }}?estado=vencido";
-}
+// Cargar datos dinámicos cuando se abren los modales
+document.getElementById('modalTopEquipos').addEventListener('show.bs.modal', function() {
+    fetch('/api/reportes/top-equipos')
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.getElementById('tablaTopEquipos');
+            tbody.innerHTML = '';
 
-function verTopEquipos() {
-    // Aquí podrías implementar una vista específica
-    alert('Función en desarrollo. Por ahora, revisa el inventario.');
-    window.location.href = "{{ url_for('equipos') }}";
-}
+            data.forEach((equipo, index) => {
+                const row = `
+                    <tr>
+                        <td>
+                            ${index + 1}
+                            ${index === 0 ? '<i class="fas fa-crown text-warning"></i>' : ''}
+                        </td>
+                        <td><strong>${equipo.nombre}</strong></td>
+                        <td><code>${equipo.codigo}</code></td>
+                        <td><span class="badge bg-primary">${equipo.veces_prestado}</span></td>
+                        <td>${equipo.dias_total}</td>
+                        <td>${equipo.promedio_dias} días</td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        })
+        .catch(() => {
+            document.getElementById('tablaTopEquipos').innerHTML =
+                '<tr><td colspan="6" class="text-center text-danger">Error al cargar datos</td></tr>';
+        });
+});
 
-function exportarExcel() {
-    alert('La exportación a Excel estará disponible próximamente.');
-}
+document.getElementById('modalTopUsuarios').addEventListener('show.bs.modal', function() {
+    fetch('/api/reportes/top-usuarios')
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.getElementById('tablaTopUsuarios');
+            tbody.innerHTML = '';
 
-function exportarPDF() {
-    alert('La exportación a PDF estará disponible próximamente.');
+            data.forEach((usuario, index) => {
+                const row = `
+                    <tr>
+                        <td>
+                            ${index + 1}
+                            ${index === 0 ? '<i class="fas fa-medal text-warning"></i>' : ''}
+                        </td>
+                        <td><strong>${usuario.nombre}</strong></td>
+                        <td>${usuario.area || 'Sin área'}</td>
+                        <td><span class="badge bg-info">${usuario.total_prestamos}</span></td>
+                        <td><span class="badge bg-warning">${usuario.prestamos_activos}</span></td>
+                        <td>${usuario.tasa_devolucion}%</td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        })
+        .catch(() => {
+            document.getElementById('tablaTopUsuarios').innerHTML =
+                '<tr><td colspan="6" class="text-center text-danger">Error al cargar datos</td></tr>';
+        });
+});
+
+function exportarEstadisticas() {
+    // Función para exportar estadísticas (implementar según necesidad)
+    alert('Función de exportación disponible próximamente');
 }
 </script>
 {% endblock %}

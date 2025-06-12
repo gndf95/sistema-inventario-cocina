@@ -7,36 +7,55 @@
     <div class="row">
         <div class="col-12 col-lg-8">
             <h1 class="h3 h2-md mb-4">Registrar Nuevo Préstamo</h1>
-            
+
+            <!-- Información del almacén del usuario -->
+            {% if area_usuario and area_usuario != 'Todas' %}
+            <div class="alert alert-info">
+                <i class="fas fa-warehouse"></i>
+                <strong>{{ area_usuario }}</strong> - Prestando equipo a las áreas operativas
+            </div>
+            {% endif %}
+
             <form method="POST" id="formPrestamo">
-                <!-- Datos del Responsable -->
+                <!-- Datos del Responsable y Área Destino -->
                 <div class="card mb-3">
                     <div class="card-header bg-light">
-                        <h5 class="mb-0">Datos del Responsable</h5>
+                        <h5 class="mb-0">Datos del Préstamo</h5>
                     </div>
                     <div class="card-body">
                         <div class="row g-3">
                             <div class="col-12 col-md-6">
-                                <label for="responsable_nombre" class="form-label">Nombre Completo *</label>
-                                <input type="text" class="form-control" id="responsable_nombre" 
-                                       name="responsable_nombre" required>
+                                <label for="responsable_nombre" class="form-label">Responsable que Recibe *</label>
+                                <input type="text" class="form-control" id="responsable_nombre"
+                                       name="responsable_nombre" required
+                                       placeholder="Nombre completo del responsable">
                             </div>
-                            
+
+                            <!-- NUEVO: Área operativa que recibe el equipo -->
                             <div class="col-12 col-md-6">
-                                <label for="responsable_area" class="form-label">Área/Departamento *</label>
-                                <input type="text" class="form-control" id="responsable_area" 
-                                       name="responsable_area" required>
+                                <label for="responsable_area" class="form-label">Área que Recibe el Equipo *</label>
+                                <select class="form-select" id="responsable_area" name="responsable_area" required>
+                                    <option value="">Seleccione el área destino</option>
+                                    <option value="Cocina Fría">🧊 Cocina Fría</option>
+                                    <option value="Almacén">🏠 Almacén</option>
+                                    <option value="Cocina Caliente">🔥 Cocina Caliente</option>
+                                    <option value="Repostería">🧁 Repostería</option>
+                                    <option value="Panadería">🥖 Panadería</option>
+                                    <option value="Logística">📦 Logística</option>
+                                    <option value="Ventas">💰 Ventas</option>
+                                </select>
+                                <small class="text-muted">¿Para qué área operativa es este préstamo?</small>
                             </div>
-                            
+
                             <div class="col-12 col-md-6">
-                                <label for="responsable_telefono" class="form-label">Teléfono</label>
-                                <input type="tel" class="form-control" id="responsable_telefono" 
-                                       name="responsable_telefono" placeholder="10 dígitos">
+                                <label for="responsable_telefono" class="form-label">Teléfono de Contacto</label>
+                                <input type="tel" class="form-control" id="responsable_telefono"
+                                       name="responsable_telefono" placeholder="Ej: 5551234567">
                             </div>
-                            
+
                             <div class="col-12 col-md-6">
                                 <label for="fecha_devolucion" class="form-label">Fecha de Devolución *</label>
-                                <input type="date" class="form-control" id="fecha_devolucion" 
+                                <input type="date" class="form-control" id="fecha_devolucion"
                                        name="fecha_devolucion" required>
                             </div>
                         </div>
@@ -51,32 +70,40 @@
                                 <label for="motivo" class="form-label">Motivo del Préstamo *</label>
                                 <select class="form-select" id="motivo" name="motivo" required>
                                     <option value="">Seleccione un motivo</option>
-                                    <option value="evento">Evento especial</option>
-                                    <option value="catering">Servicio de catering</option>
-                                    <option value="produccion">Producción diaria</option>
-                                    <option value="reemplazo">Reemplazo por mantenimiento</option>
+                                    <option value="operacion_diaria">Operación diaria</option>
+                                    <option value="evento_especial">Evento especial</option>
+                                    <option value="reemplazo_temporal">Reemplazo temporal</option>
+                                    <option value="capacitacion">Capacitación</option>
+                                    <option value="mantenimiento">Por mantenimiento de equipo propio</option>
+                                    <option value="produccion_especial">Producción especial</option>
                                     <option value="otro">Otro</option>
                                 </select>
                             </div>
-                            
+
                             <div class="col-12 col-md-6">
-                                <label for="evento" class="form-label">Evento/Descripción</label>
-                                <input type="text" class="form-control" id="evento" name="evento" 
-                                       placeholder="Ej: Boda García - 200 personas">
+                                <label for="evento" class="form-label">Descripción/Evento</label>
+                                <input type="text" class="form-control" id="evento" name="evento"
+                                       placeholder="Ej: Banquete para 200 personas">
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Selección de Equipos -->
+                <!-- Selección de Equipos del Almacén -->
                 <div class="card mb-3">
                     <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Equipos a Prestar</h5>
+                        <h5 class="mb-0">
+                            Equipos Disponibles
+                            {% if area_usuario and area_usuario != 'Todas' %}
+                            <span class="badge bg-primary ms-2">{{ area_usuario }}</span>
+                            {% endif %}
+                        </h5>
                         <button type="button" class="btn btn-sm btn-primary" onclick="agregarEquipo()">
-                            <i class="fas fa-plus"></i> Agregar
+                            <i class="fas fa-plus"></i> Agregar Equipo
                         </button>
                     </div>
                     <div class="card-body">
+                        {% if equipos %}
                         <div id="listaEquipos">
                             <!-- Primera fila de equipo -->
                             <div class="row g-2 mb-2 equipo-row">
@@ -84,16 +111,20 @@
                                     <select class="form-select equipo-select" name="equipo_id[]" onchange="actualizarDisponibilidad(this)">
                                         <option value="">Seleccione un equipo</option>
                                         {% for equipo in equipos %}
-                                        <option value="{{ equipo.id }}" 
+                                        <option value="{{ equipo.id }}"
                                                 data-disponible="{{ equipo.cantidad_disponible }}"
-                                                data-codigo="{{ equipo.codigo }}">
-                                            {{ equipo.nombre }} ({{ equipo.codigo }}) - Disponible: {{ equipo.cantidad_disponible }}
+                                                data-codigo="{{ equipo.codigo }}"
+                                                data-categoria="{{ equipo.categoria.nombre if equipo.categoria else '' }}">
+                                            {{ equipo.nombre }} ({{ equipo.codigo }}) - Disp: {{ equipo.cantidad_disponible }}
+                                            {% if equipo.categoria %}
+                                            <small class="text-muted">- {{ equipo.categoria.nombre }}</small>
+                                            {% endif %}
                                         </option>
                                         {% endfor %}
                                     </select>
                                 </div>
                                 <div class="col-8 col-md-3">
-                                    <input type="number" class="form-control cantidad-input" name="cantidad[]" 
+                                    <input type="number" class="form-control cantidad-input" name="cantidad[]"
                                            placeholder="Cantidad" min="0" max="0" value="0">
                                 </div>
                                 <div class="col-4 col-md-2">
@@ -103,17 +134,30 @@
                                 </div>
                             </div>
                         </div>
-                        
+                        {% else %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>No hay equipos disponibles en este almacén</strong>
+                            {% if area_usuario %}
+                            <br>Almacén: <strong>{{ area_usuario }}</strong>
+                            <br>Contacta al administrador para agregar equipos a este almacén.
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        {% if equipos %}
                         <div class="alert alert-info mt-3 mb-0">
                             <i class="fas fa-info-circle"></i>
-                            Solo se muestran equipos con unidades disponibles
+                            <strong>Flujo del préstamo:</strong>
+                            {{ area_usuario or 'Almacén' }} → Área operativa seleccionada
                         </div>
+                        {% endif %}
                     </div>
                 </div>
 
                 <!-- Resumen del préstamo -->
                 <div class="card mb-3 d-none" id="resumenPrestamo">
-                    <div class="card-header bg-primary text-white">
+                    <div class="card-header bg-success text-white">
                         <h6 class="mb-0">Resumen del Préstamo</h6>
                     </div>
                     <div class="card-body">
@@ -122,33 +166,84 @@
                 </div>
 
                 <!-- Botones de acción -->
+                {% if equipos %}
                 <div class="d-grid gap-2 d-md-flex justify-content-md-end mb-4">
                     <a href="{{ url_for('prestamos') }}" class="btn btn-secondary">
                         <i class="fas fa-times"></i> Cancelar
                     </a>
                     <button type="submit" class="btn btn-success btn-lg">
-                        <i class="fas fa-check"></i> Registrar Préstamo
+                        <i class="fas fa-hand-holding"></i> Registrar Préstamo
                     </button>
                 </div>
+                {% else %}
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end mb-4">
+                    <a href="{{ url_for('prestamos') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Volver a Préstamos
+                    </a>
+                </div>
+                {% endif %}
             </form>
         </div>
-        
-        <!-- Panel lateral de ayuda -->
+
+        <!-- Panel lateral de información -->
         <div class="col-12 col-lg-4 mt-4 mt-lg-0">
             <div class="card bg-light">
                 <div class="card-body">
-                    <h5 class="card-title">Proceso de Préstamo</h5>
-                    <ol class="small ps-3">
-                        <li>Ingrese los datos del responsable</li>
-                        <li>Seleccione los equipos y cantidades</li>
-                        <li>Establezca la fecha de devolución</li>
-                        <li>Se generará un comprobante PDF</li>
-                        <li>Podrá imprimir el código QR</li>
-                    </ol>
-                    
-                    <div class="alert alert-warning mt-3">
-                        <strong>Importante:</strong> Verifique las cantidades disponibles antes de confirmar el préstamo.
+                    <h5 class="card-title">Sistema de Almacenes</h5>
+
+                    {% if area_usuario == 'Almacén Compras' %}
+                    <div class="alert alert-primary">
+                        <h6>🛒 Almacén Compras</h6>
+                        <p class="small mb-0">Utensilios generales, herramientas básicas, contenedores y equipo de preparación.</p>
                     </div>
+
+                    {% elif area_usuario == 'Almacén Calidad e Higiene' %}
+                    <div class="alert alert-success">
+                        <h6>🧪 Almacén Calidad e Higiene</h6>
+                        <p class="small mb-0">Instrumentos de control, medición, balanzas de precisión y equipo especializado.</p>
+                    </div>
+
+                    {% elif area_usuario == 'Almacén Equipo Especial' %}
+                    <div class="alert alert-warning">
+                        <h6>⚡ Almacén Equipo Especial</h6>
+                        <p class="small mb-0">Maquinaria especializada, herramientas técnicas y equipo electrónico.</p>
+                    </div>
+
+                    {% else %}
+                    <div class="alert alert-info">
+                        <h6>👨‍💼 Acceso Completo</h6>
+                        <p class="small mb-0">Tienes acceso a equipos de todos los almacenes.</p>
+                    </div>
+                    {% endif %}
+
+                    <hr>
+                    <h6>7 Áreas Operativas que Reciben:</h6>
+                    <div class="row small">
+                        <div class="col-6">
+                            <ul class="list-unstyled">
+                                <li>🧊 Cocina Fría</li>
+                                <li>🏠 Almacén</li>
+                                <li>🔥 Cocina Caliente</li>
+                                <li>🧁 Repostería</li>
+                            </ul>
+                        </div>
+                        <div class="col-6">
+                            <ul class="list-unstyled">
+                                <li>🥖 Panadería</li>
+                                <li>📦 Logística</li>
+                                <li>💰 Ventas</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <hr>
+                    <h6>Proceso de Préstamo</h6>
+                    <ol class="small ps-3">
+                        <li>Selecciona el área que recibe</li>
+                        <li>Elige equipos de tu almacén</li>
+                        <li>Establece fecha de devolución</li>
+                        <li>Se genera comprobante con QR</li>
+                    </ol>
                 </div>
             </div>
         </div>
@@ -169,13 +264,13 @@ function agregarEquipo() {
     const container = document.getElementById('listaEquipos');
     const primeraFila = container.querySelector('.equipo-row');
     const nuevaFila = primeraFila.cloneNode(true);
-    
+
     // Limpiar valores
     nuevaFila.querySelector('select').value = '';
     nuevaFila.querySelector('input[type="number"]').value = '0';
     nuevaFila.querySelector('input[type="number"]').max = '0';
     nuevaFila.querySelector('button').disabled = false;
-    
+
     container.appendChild(nuevaFila);
     actualizarResumen();
 }
@@ -191,7 +286,7 @@ function actualizarDisponibilidad(select) {
     const row = select.closest('.equipo-row');
     const cantidadInput = row.querySelector('.cantidad-input');
     const selectedOption = select.options[select.selectedIndex];
-    
+
     if (select.value) {
         const disponible = parseInt(selectedOption.getAttribute('data-disponible'));
         cantidadInput.max = disponible;
@@ -202,7 +297,7 @@ function actualizarDisponibilidad(select) {
         cantidadInput.min = 0;
         cantidadInput.value = 0;
     }
-    
+
     actualizarResumen();
 }
 
@@ -211,32 +306,45 @@ function actualizarResumen() {
     const rows = document.querySelectorAll('.equipo-row');
     const resumenDiv = document.getElementById('resumenPrestamo');
     const contenido = document.getElementById('resumenContenido');
-    
+    const areaDestino = document.getElementById('responsable_area').value;
+
     let items = [];
     let totalItems = 0;
-    
+
     rows.forEach(row => {
         const select = row.querySelector('select');
         const cantidad = parseInt(row.querySelector('input[type="number"]').value) || 0;
-        
+
         if (select.value && cantidad > 0) {
             const option = select.options[select.selectedIndex];
+            const nombreEquipo = option.text.split(' (')[0]; // Solo el nombre, sin código
             items.push({
-                nombre: option.text.split(' - ')[0],
+                nombre: nombreEquipo,
                 cantidad: cantidad
             });
             totalItems += cantidad;
         }
     });
-    
+
     if (items.length > 0) {
         resumenDiv.classList.remove('d-none');
-        let html = '<ul class="mb-0">';
+        let html = '<div class="row">';
+        html += '<div class="col-md-8"><h6>Equipos a Prestar:</h6><ul class="mb-0">';
         items.forEach(item => {
             html += `<li>${item.cantidad} x ${item.nombre}</li>`;
         });
-        html += '</ul>';
-        html += `<hr><strong>Total de items: ${totalItems}</strong>`;
+        html += '</ul></div>';
+        html += '<div class="col-md-4"><h6>Destino:</h6>';
+        if (areaDestino) {
+            html += `<span class="badge bg-success fs-6">${areaDestino}</span>`;
+        } else {
+            html += `<span class="text-muted">Seleccione área</span>`;
+        }
+        html += '</div></div>';
+        html += `<hr><div class="d-flex justify-content-between">`;
+        html += `<strong>Total de items: ${totalItems}</strong>`;
+        html += `<strong>Desde: {{ area_usuario or 'Almacén' }}</strong>`;
+        html += `</div>`;
         contenido.innerHTML = html;
     } else {
         resumenDiv.classList.add('d-none');
@@ -245,32 +353,49 @@ function actualizarResumen() {
 
 // Validación antes de enviar
 document.getElementById('formPrestamo').addEventListener('submit', function(e) {
+    {% if not equipos %}
     e.preventDefault();
-    
+    alert('No tienes equipos disponibles para prestar en este almacén.');
+    return false;
+    {% endif %}
+
+    e.preventDefault();
+
     // Verificar que hay al menos un equipo seleccionado
     const equiposSeleccionados = Array.from(document.querySelectorAll('.equipo-select'))
         .filter(s => s.value && parseInt(s.closest('.equipo-row').querySelector('.cantidad-input').value) > 0);
-    
+
     if (equiposSeleccionados.length === 0) {
         alert('Debe seleccionar al menos un equipo con cantidad mayor a 0');
         return false;
     }
-    
+
+    // Verificar que se seleccionó área destino
+    const areaDestino = document.getElementById('responsable_area').value;
+    if (!areaDestino) {
+        alert('Debe seleccionar el área que recibirá el equipo');
+        document.getElementById('responsable_area').focus();
+        return false;
+    }
+
     // Verificar fecha
     const fecha = new Date(document.getElementById('fecha_devolucion').value);
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
-    
+
     if (fecha < hoy) {
         alert('La fecha de devolución no puede ser anterior a hoy');
         return false;
     }
-    
+
     // Confirmación final
-    if (confirm('¿Confirma el registro de este préstamo?')) {
+    if (confirm(`¿Confirma el préstamo desde {{ area_usuario or 'Almacén' }} hacia ${areaDestino}?`)) {
         this.submit();
     }
 });
+
+// Actualizar resumen cuando cambia el área destino
+document.getElementById('responsable_area').addEventListener('change', actualizarResumen);
 
 // Actualizar al cambiar cantidades
 document.addEventListener('input', function(e) {

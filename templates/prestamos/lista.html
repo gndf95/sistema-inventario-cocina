@@ -3,15 +3,65 @@
 {% block title %}Préstamos - Sistema de Inventario{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="container-fluid px-2 px-md-4">
     <div class="row mb-4">
         <div class="col-md-6">
-            <h1 class="h2">Préstamos</h1>
+            <h1 class="h3 h2-md">Préstamos</h1>
+            <small class="text-muted">
+                {% if current_user.area_trabajo and current_user.rol not in ['admin', 'supervisor'] %}
+                    Mostrando préstamos de {{ current_user.area_trabajo }}
+                {% else %}
+                    Mostrando todos los préstamos del sistema
+                {% endif %}
+            </small>
         </div>
-        <div class="col-md-6 text-end">
+        <div class="col-md-6 text-md-end">
             <a href="{{ url_for('nuevo_prestamo') }}" class="btn btn-success">
                 <i class="fas fa-plus"></i> Nuevo Préstamo
             </a>
+        </div>
+    </div>
+
+    <!-- Filtros rápidos -->
+    <div class="card mb-3">
+        <div class="card-body p-2 p-md-3">
+            <div class="row g-2">
+                <div class="col-12 col-md-3">
+                    <input type="text" class="form-control form-control-sm" id="buscarPrestamo"
+                           placeholder="Buscar por folio, responsable...">
+                </div>
+                <div class="col-6 col-md-2">
+                    <select class="form-select form-select-sm" id="filtroEstado">
+                        <option value="">Todos los estados</option>
+                        <option value="activo">Activos</option>
+                        <option value="vencido">Vencidos</option>
+                        <option value="por_vencer">Por vencer (3 días)</option>
+                        <option value="parcial">Devolución parcial</option>
+                        <option value="devuelto">Devueltos</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <select class="form-select form-select-sm" id="filtroUsuario">
+                        <option value="">Todos los usuarios</option>
+                        {% for usuario in usuarios_prestamos %}
+                        <option value="{{ usuario.id }}">{{ usuario.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <input type="date" class="form-control form-control-sm" id="filtroFecha">
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="btn-group w-100" role="group">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="limpiarFiltros()">
+                            <i class="fas fa-times"></i> Limpiar
+                        </button>
+                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="exportarPrestamos()">
+                            <i class="fas fa-download"></i> Exportar
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -19,22 +69,26 @@
     <ul class="nav nav-tabs mb-3" id="prestamosTabs" role="tablist">
         <li class="nav-item" role="presentation">
             <button class="nav-link active" id="todos-tab" data-bs-toggle="tab" data-bs-target="#todos" type="button">
-                Todos
+                <i class="fas fa-list"></i> Todos
+                <span class="badge bg-primary">{{ prestamos|length }}</span>
             </button>
         </li>
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="activos-tab" data-bs-toggle="tab" data-bs-target="#activos" type="button">
-                Activos <span class="badge bg-primary">{{ prestamos|selectattr('estado', 'equalto', 'activo')|list|length }}</span>
+                <i class="fas fa-play-circle"></i> Activos
+                <span class="badge bg-success">{{ prestamos_activos_count }}</span>
             </button>
         </li>
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="vencidos-tab" data-bs-toggle="tab" data-bs-target="#vencidos" type="button">
-                Vencidos <span class="badge bg-danger">{{ prestamos|selectattr('vencido')|list|length }}</span>
+                <i class="fas fa-exclamation-triangle"></i> Vencidos
+                <span class="badge bg-danger">{{ prestamos_vencidos_count }}</span>
             </button>
         </li>
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="devueltos-tab" data-bs-toggle="tab" data-bs-target="#devueltos" type="button">
-                Devueltos
+                <i class="fas fa-check-circle"></i> Devueltos
+                <span class="badge bg-secondary">{{ prestamos_devueltos_count }}</span>
             </button>
         </li>
     </ul>
@@ -42,82 +96,233 @@
     <!-- Contenido de tabs -->
     <div class="tab-content" id="prestamosTabContent">
         <div class="tab-pane fade show active" id="todos" role="tabpanel">
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Equipo</th>
-                            <th>Responsable</th>
-                            <th>Fecha Préstamo</th>
-                            <th>Fecha Devolución</th>
-                            <th>Estado</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for prestamo in prestamos %}
-                        <tr class="prestamo-row" 
-                            data-estado="{{ prestamo.estado }}"
-                            data-vencido="{{ 'si' if prestamo.vencido else 'no' }}">
-                            <td>{{ prestamo.folio or prestamo.id }}</td>
-                            <td>
-                                {% for detalle in prestamo.detalles %}
-                                    <strong>{{ detalle.tipo_equipo.nombre }}</strong> (x{{ detalle.cantidad }})<br>
-                                    <small class="text-muted">{{ detalle.tipo_equipo.codigo }}</small>
-                                    {% if not loop.last %}<br>{% endif %}
-                                {% endfor %}
-                            </td>
-                            <td>
-                                {{ prestamo.responsable_nombre }}<br>
-                                <small class="text-muted">{{ prestamo.responsable_area }}</small>
-                            </td>
-                            <td>{{ prestamo.fecha_prestamo.strftime('%d/%m/%Y %H:%M') }}</td>
-                            <td>
-                                {{ prestamo.fecha_devolucion_esperada.strftime('%d/%m/%Y') }}
-                                {% if prestamo.vencido %}
-                                <br><span class="badge bg-danger">Vencido</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if prestamo.estado == 'activo' %}
-                                    {% if prestamo.vencido %}
-                                        <span class="badge bg-danger">Vencido</span>
+            <!-- Vista móvil - Cards -->
+            <div class="d-block d-md-none">
+                <div id="prestamosCards">
+                    {% for prestamo in prestamos %}
+                    <div class="card mb-2 prestamo-item"
+                         data-estado="{{ prestamo.estado }}"
+                         data-vencido="{{ 'si' if prestamo.vencido else 'no' }}"
+                         data-usuario="{{ prestamo.usuario_prestamo.id if prestamo.usuario_prestamo else '' }}"
+                         data-responsable="{{ prestamo.responsable_nombre.lower() }}"
+                         data-folio="{{ prestamo.folio.lower() }}"
+                         data-fecha="{{ prestamo.fecha_prestamo.strftime('%Y-%m-%d') }}">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <h6 class="mb-1">{{ prestamo.folio }}</h6>
+                                    <small class="text-muted">{{ prestamo.fecha_prestamo.strftime('%d/%m/%Y %H:%M') }}</small>
+                                </div>
+                                <div class="text-end">
+                                    {% if prestamo.estado == 'activo' %}
+                                        {% set dias_restantes = (prestamo.fecha_devolucion_esperada.date() - datetime.now().date()).days %}
+                                        {% if dias_restantes < 0 %}
+                                            <span class="badge bg-danger">Vencido {{ -dias_restantes }}d</span>
+                                        {% elif dias_restantes <= 3 %}
+                                            <span class="badge bg-warning">{{ dias_restantes }}d restantes</span>
+                                        {% else %}
+                                            <span class="badge bg-success">Activo</span>
+                                        {% endif %}
+                                    {% elif prestamo.estado == 'parcial' %}
+                                        <span class="badge bg-info">Parcial</span>
                                     {% else %}
-                                        <span class="badge bg-warning">Activo</span>
+                                        <span class="badge bg-secondary">Devuelto</span>
                                     {% endif %}
-                                {% elif prestamo.estado == 'parcial' %}
-                                    <span class="badge bg-info">Parcial</span>
-                                {% else %}
-                                    <span class="badge bg-success">Devuelto</span>
+                                </div>
+                            </div>
+
+                            <div class="mb-2">
+                                <strong>{{ prestamo.responsable_nombre }}</strong><br>
+                                <small class="text-muted">{{ prestamo.responsable_area or 'Sin área' }}</small>
+                            </div>
+
+                            <div class="mb-2">
+                                <span class="badge bg-primary">{{ prestamo.total_items }} items</span>
+                                {% if prestamo.usuario_prestamo %}
+                                <span class="badge bg-info">{{ prestamo.usuario_prestamo.nombre }}</span>
                                 {% endif %}
-                            </td>
-                            <td>
-                                <div class="btn-group" role="group">
-                                    <a href="{{ url_for('ver_prestamo', id=prestamo.id) }}" 
-                                       class="btn btn-sm btn-primary" title="Ver detalles">
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted">
+                                    Días: {{ prestamo.dias_prestamo }}
+                                    {% if prestamo.items_pendientes > 0 %}
+                                    | Pendientes: {{ prestamo.items_pendientes }}
+                                    {% endif %}
+                                </small>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('ver_prestamo', id=prestamo.id) }}"
+                                       class="btn btn-outline-primary btn-sm">
                                         <i class="fas fa-eye"></i>
                                     </a>
-                                    {% if prestamo.estado == 'activo' %}
-                                    <button class="btn btn-sm btn-success" 
-                                            onclick="mostrarModalDevolucion({{ prestamo.id }}, '{{ prestamo.responsable_nombre }}')"
-                                            title="Registrar devolución">
+                                    {% if prestamo.estado in ['activo', 'parcial'] %}
+                                    <button class="btn btn-outline-success btn-sm"
+                                            onclick="mostrarModalDevolucion({{ prestamo.id }}, '{{ prestamo.responsable_nombre }}')">
                                         <i class="fas fa-undo"></i>
                                     </button>
                                     {% endif %}
-                                    {% if prestamo.codigo_qr_prestamo %}
-                                    <button class="btn btn-sm btn-secondary" 
-                                            onclick="mostrarQR('{{ prestamo.codigo_qr_prestamo }}', 'Préstamo {{ prestamo.folio }}')"
-                                            title="Ver QR">
-                                        <i class="fas fa-qrcode"></i>
-                                    </button>
-                                    {% endif %}
                                 </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Vista escritorio - Tabla -->
+            <div class="d-none d-md-block">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Folio</th>
+                                <th>Responsable</th>
+                                <th>Usuario Prestó</th>
+                                <th>Equipos</th>
+                                <th>Fecha Préstamo</th>
+                                <th>Devolución</th>
+                                <th>Estado</th>
+                                <th>Días</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for prestamo in prestamos %}
+                            <tr class="prestamo-item"
+                                data-estado="{{ prestamo.estado }}"
+                                data-vencido="{{ 'si' if prestamo.vencido else 'no' }}"
+                                data-usuario="{{ prestamo.usuario_prestamo.id if prestamo.usuario_prestamo else '' }}"
+                                data-responsable="{{ prestamo.responsable_nombre.lower() }}"
+                                data-folio="{{ prestamo.folio.lower() }}"
+                                data-fecha="{{ prestamo.fecha_prestamo.strftime('%Y-%m-%d') }}">
+                                <td>
+                                    <strong>{{ prestamo.folio }}</strong>
+                                    {% if prestamo.evento %}
+                                    <br><small class="text-muted">{{ prestamo.evento }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div>
+                                        <strong>{{ prestamo.responsable_nombre }}</strong>
+                                        <br><small class="text-muted">{{ prestamo.responsable_area or 'Sin área' }}</small>
+                                        {% if prestamo.responsable_telefono %}
+                                        <br><small class="text-info">
+                                            <i class="fas fa-phone"></i> {{ prestamo.responsable_telefono }}
+                                        </small>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if prestamo.usuario_prestamo %}
+                                        <span class="badge bg-info">
+                                            <i class="fas fa-user"></i> {{ prestamo.usuario_prestamo.nombre }}
+                                        </span>
+                                        <br><small class="text-muted">{{ prestamo.usuario_prestamo.area or 'Sin área' }}</small>
+                                    {% else %}
+                                        <small class="text-muted">No registrado</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-link p-0" onclick="verDetalleEquipos({{ prestamo.id }})">
+                                        <span class="badge bg-primary">{{ prestamo.total_items }} items</span>
+                                    </button>
+                                    {% if prestamo.items_pendientes > 0 %}
+                                    <br><span class="badge bg-warning">{{ prestamo.items_pendientes }} pendientes</span>
+                                    {% endif %}
+
+                                    <!-- Lista oculta de equipos -->
+                                    <div id="equipos-{{ prestamo.id }}" style="display: none;">
+                                        <div class="list-group list-group-flush">
+                                            {% for detalle in prestamo.detalles %}
+                                            <div class="list-group-item p-2">
+                                                <strong>{{ detalle.tipo_equipo.nombre }}</strong>
+                                                <span class="badge bg-secondary">x{{ detalle.cantidad }}</span>
+                                                {% if detalle.cantidad_devuelta > 0 %}
+                                                <span class="badge bg-success">{{ detalle.cantidad_devuelta }} devueltos</span>
+                                                {% endif %}
+                                                <br><small class="text-muted">{{ detalle.tipo_equipo.codigo }}</small>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    {{ prestamo.fecha_prestamo.strftime('%d/%m/%Y') }}
+                                    <br><small class="text-muted">{{ prestamo.fecha_prestamo.strftime('%H:%M') }}</small>
+                                </td>
+                                <td>
+                                    {% set dias_restantes = (prestamo.fecha_devolucion_esperada.date() - datetime.now().date()).days %}
+                                    {{ prestamo.fecha_devolucion_esperada.strftime('%d/%m/%Y') }}
+                                    <br>
+                                    {% if prestamo.estado == 'devuelto' %}
+                                        {% if prestamo.fecha_devolucion_real %}
+                                        <small class="text-success">
+                                            <i class="fas fa-check"></i> {{ prestamo.fecha_devolucion_real.strftime('%d/%m/%Y') }}
+                                        </small>
+                                        {% endif %}
+                                    {% elif dias_restantes < 0 %}
+                                        <small class="text-danger">
+                                            <i class="fas fa-exclamation-triangle"></i> Vencido {{ -dias_restantes }}d
+                                        </small>
+                                    {% elif dias_restantes <= 3 %}
+                                        <small class="text-warning">
+                                            <i class="fas fa-clock"></i> {{ dias_restantes }} días restantes
+                                        </small>
+                                    {% else %}
+                                        <small class="text-muted">
+                                            <i class="fas fa-calendar"></i> {{ dias_restantes }} días
+                                        </small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if prestamo.estado == 'activo' %}
+                                        {% if prestamo.vencido %}
+                                            <span class="badge bg-danger">Vencido</span>
+                                        {% elif dias_restantes <= 3 %}
+                                            <span class="badge bg-warning">Por vencer</span>
+                                        {% else %}
+                                            <span class="badge bg-success">Activo</span>
+                                        {% endif %}
+                                    {% elif prestamo.estado == 'parcial' %}
+                                        <span class="badge bg-info">Parcial</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Devuelto</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ prestamo.dias_prestamo }}</span>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="{{ url_for('ver_prestamo', id=prestamo.id) }}"
+                                           class="btn btn-primary" title="Ver detalles">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        {% if prestamo.estado in ['activo', 'parcial'] %}
+                                        <button class="btn btn-success"
+                                                onclick="mostrarModalDevolucion({{ prestamo.id }}, '{{ prestamo.responsable_nombre }}')"
+                                                title="Registrar devolución">
+                                            <i class="fas fa-undo"></i>
+                                        </button>
+                                        {% endif %}
+                                        {% if prestamo.codigo_qr_prestamo %}
+                                        <button class="btn btn-secondary"
+                                                onclick="mostrarQR('{{ prestamo.codigo_qr_prestamo }}', 'Préstamo {{ prestamo.folio }}')"
+                                                title="Ver QR">
+                                            <i class="fas fa-qrcode"></i>
+                                        </button>
+                                        {% endif %}
+                                        <a href="{{ url_for('descargar_pdf_prestamo', id=prestamo.id) }}"
+                                           class="btn btn-info" title="Descargar PDF">
+                                            <i class="fas fa-file-pdf"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -133,8 +338,8 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <p>Equipo: <strong id="equipoDevolucion"></strong></p>
-                    
+                    <p>Responsable: <strong id="equipoDevolucion"></strong></p>
+
                     <div class="mb-3">
                         <label class="form-label">Estado del Equipo al Devolver *</label>
                         <select class="form-select" name="estado_equipo" required>
@@ -143,10 +348,10 @@
                             <option value="baja">Dañado - Dar de baja</option>
                         </select>
                     </div>
-                    
+
                     <div class="mb-3">
                         <label class="form-label">Observaciones</label>
-                        <textarea class="form-control" name="observaciones" rows="3" 
+                        <textarea class="form-control" name="observaciones" rows="3"
                                   placeholder="Condición del equipo, daños, etc."></textarea>
                     </div>
                 </div>
@@ -178,43 +383,135 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Detalle Equipos -->
+<div class="modal fade" id="modalDetalleEquipos" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalle de Equipos</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modalEquiposContent">
+                <!-- Contenido dinámico -->
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+// Importar datetime para templates
+const fechaActual = new Date();
+
 // Filtrar por tabs
 document.addEventListener('DOMContentLoaded', function() {
     const tabs = document.querySelectorAll('button[data-bs-toggle="tab"]');
-    
+
     tabs.forEach(tab => {
         tab.addEventListener('shown.bs.tab', function(e) {
             const targetId = e.target.getAttribute('id');
-            const rows = document.querySelectorAll('.prestamo-row');
-            
-            rows.forEach(row => {
-                const estado = row.getAttribute('data-estado');
-                const vencido = row.getAttribute('data-vencido');
-                
-                switch(targetId) {
-                    case 'todos-tab':
-                        row.style.display = '';
-                        break;
-                    case 'activos-tab':
-                        row.style.display = estado === 'activo' && vencido === 'no' ? '' : 'none';
-                        break;
-                    case 'vencidos-tab':
-                        row.style.display = vencido === 'si' ? '' : 'none';
-                        break;
-                    case 'devueltos-tab':
-                        row.style.display = estado === 'devuelto' ? '' : 'none';
-                        break;
-                    default:
-                        row.style.display = '';
-                }
-            });
+            filtrarPorTab(targetId);
         });
     });
 });
+
+function filtrarPorTab(tabId) {
+    const rows = document.querySelectorAll('.prestamo-item');
+
+    rows.forEach(row => {
+        const estado = row.getAttribute('data-estado');
+        const vencido = row.getAttribute('data-vencido');
+
+        let mostrar = true;
+
+        switch(tabId) {
+            case 'todos-tab':
+                mostrar = true;
+                break;
+            case 'activos-tab':
+                mostrar = estado === 'activo' && vencido === 'no';
+                break;
+            case 'vencidos-tab':
+                mostrar = vencido === 'si';
+                break;
+            case 'devueltos-tab':
+                mostrar = estado === 'devuelto';
+                break;
+        }
+
+        row.style.display = mostrar ? '' : 'none';
+    });
+}
+
+// Filtros dinámicos
+document.getElementById('buscarPrestamo').addEventListener('keyup', aplicarFiltros);
+document.getElementById('filtroEstado').addEventListener('change', aplicarFiltros);
+document.getElementById('filtroUsuario').addEventListener('change', aplicarFiltros);
+document.getElementById('filtroFecha').addEventListener('change', aplicarFiltros);
+
+function aplicarFiltros() {
+    const buscar = document.getElementById('buscarPrestamo').value.toLowerCase();
+    const estado = document.getElementById('filtroEstado').value;
+    const usuario = document.getElementById('filtroUsuario').value;
+    const fecha = document.getElementById('filtroFecha').value;
+
+    const items = document.querySelectorAll('.prestamo-item');
+
+    items.forEach(item => {
+        const responsable = item.getAttribute('data-responsable');
+        const folio = item.getAttribute('data-folio');
+        const itemEstado = item.getAttribute('data-estado');
+        const itemVencido = item.getAttribute('data-vencido');
+        const itemUsuario = item.getAttribute('data-usuario');
+        const itemFecha = item.getAttribute('data-fecha');
+
+        let mostrar = true;
+
+        // Filtro de búsqueda
+        if (buscar && !responsable.includes(buscar) && !folio.includes(buscar)) {
+            mostrar = false;
+        }
+
+        // Filtro de estado
+        if (estado) {
+            switch(estado) {
+                case 'activo':
+                    if (itemEstado !== 'activo' || itemVencido === 'si') mostrar = false;
+                    break;
+                case 'vencido':
+                    if (itemVencido !== 'si') mostrar = false;
+                    break;
+                case 'por_vencer':
+                    // Implementar lógica para préstamos por vencer
+                    break;
+                default:
+                    if (itemEstado !== estado) mostrar = false;
+            }
+        }
+
+        // Filtro de usuario
+        if (usuario && itemUsuario !== usuario) {
+            mostrar = false;
+        }
+
+        // Filtro de fecha
+        if (fecha && itemFecha !== fecha) {
+            mostrar = false;
+        }
+
+        item.style.display = mostrar ? '' : 'none';
+    });
+}
+
+function limpiarFiltros() {
+    document.getElementById('buscarPrestamo').value = '';
+    document.getElementById('filtroEstado').value = '';
+    document.getElementById('filtroUsuario').value = '';
+    document.getElementById('filtroFecha').value = '';
+    aplicarFiltros();
+}
 
 // Modal de devolución
 function mostrarModalDevolucion(prestamoId, equipoNombre) {
@@ -231,20 +528,47 @@ function mostrarQR(codigoQR, titulo) {
     new bootstrap.Modal(document.getElementById('modalQR')).show();
 }
 
+// Ver detalle de equipos
+function verDetalleEquipos(prestamoId) {
+    const contenido = document.getElementById('equipos-' + prestamoId).innerHTML;
+    document.getElementById('modalEquiposContent').innerHTML = contenido;
+    new bootstrap.Modal(document.getElementById('modalDetalleEquipos')).show();
+}
+
 // Imprimir QR
 function imprimirQR() {
     const imagen = document.getElementById('imagenQR').src;
+    const titulo = document.getElementById('tituloQR').textContent;
     const ventana = window.open('', '_blank');
     ventana.document.write(`
         <html>
         <head><title>Imprimir QR</title></head>
         <body style="text-align: center;">
+            <h2>${titulo}</h2>
             <img src="${imagen}" style="max-width: 300px;">
             <script>window.print();<\/script>
         </body>
         </html>
     `);
     ventana.document.close();
+}
+
+// Exportar préstamos
+function exportarPrestamos() {
+    const url = new URL('/prestamos/exportar', window.location.origin);
+
+    // Agregar filtros actuales
+    const buscar = document.getElementById('buscarPrestamo').value;
+    const estado = document.getElementById('filtroEstado').value;
+    const usuario = document.getElementById('filtroUsuario').value;
+    const fecha = document.getElementById('filtroFecha').value;
+
+    if (buscar) url.searchParams.set('buscar', buscar);
+    if (estado) url.searchParams.set('estado', estado);
+    if (usuario) url.searchParams.set('usuario', usuario);
+    if (fecha) url.searchParams.set('fecha', fecha);
+
+    window.location.href = url.toString();
 }
 </script>
 {% endblock %}

@@ -1,13 +1,13 @@
 @echo off
 chcp 65001 >nul
 echo ================================================
-echo   Setup GitHub - Sistema de Inventario Cocina
+echo   Setup GitHub + Railway - Sistema Inventario
 echo ================================================
 echo.
 
 cd /d "%~dp0"
 
-echo ✅ Git detectado: 
+echo ✅ Git detectado:
 git --version
 echo.
 
@@ -19,29 +19,41 @@ if %errorlevel% neq 0 (
     echo.
     set /p git_name="Ingresa tu nombre completo: "
     set /p git_email="Ingresa tu email: "
-    
+
     git config --global user.name "!git_name!"
     git config --global user.email "!git_email!"
-    
+
     echo ✅ Git configurado correctamente
     echo.
 )
 
 echo Configuración actual de Git:
-echo Nombre: 
+echo Nombre:
 git config --global user.name
-echo Email: 
+echo Email:
 git config --global user.email
 echo.
 
-echo Creando archivos necesarios para GitHub...
+echo Creando archivos necesarios para Railway...
 echo.
 
-REM Crear .gitignore
-echo # Base de datos (no subir datos reales^) > .gitignore
+REM Crear .gitignore ACTUALIZADO para Railway
+echo # Base de datos local ^(no subir datos reales^) > .gitignore
 echo *.db >> .gitignore
 echo *.sqlite >> .gitignore
 echo *.sqlite3 >> .gitignore
+echo inventario.db >> .gitignore
+echo. >> .gitignore
+echo # Variables de entorno >> .gitignore
+echo .env >> .gitignore
+echo. >> .gitignore
+echo # Archivos subidos ^(no subir datos de usuarios^) >> .gitignore
+echo static/uploads/* >> .gitignore
+echo !static/uploads/.gitkeep >> .gitignore
+echo. >> .gitignore
+echo # Códigos QR generados >> .gitignore
+echo static/qr_codes/* >> .gitignore
+echo !static/qr_codes/.gitkeep >> .gitignore
 echo. >> .gitignore
 echo # Archivos de Python >> .gitignore
 echo __pycache__/ >> .gitignore
@@ -76,53 +88,80 @@ echo .DS_Store >> .gitignore
 echo Thumbs.db >> .gitignore
 echo *.log >> .gitignore
 echo. >> .gitignore
-echo # Configuraciones locales >> .gitignore
-echo config_local.py >> .gitignore
-echo .env >> .gitignore
-echo. >> .gitignore
 echo # Archivos temporales >> .gitignore
 echo *.tmp >> .gitignore
 echo *.temp >> .gitignore
-echo. >> .gitignore
-echo # Carpetas de imágenes QR generadas >> .gitignore
-echo qr_codes/ >> .gitignore
-echo uploads/ >> .gitignore
-echo. >> .gitignore
-echo # Archivos de backup >> .gitignore
 echo *.bak >> .gitignore
 echo *.backup >> .gitignore
 
-echo ✅ Archivo .gitignore creado
+echo ✅ Archivo .gitignore actualizado para Railway
 
-REM Verificar si requirements.txt ya existe
+REM Crear carpetas necesarias y archivos .gitkeep
+mkdir static\uploads 2>nul
+mkdir static\qr_codes 2>nul
+echo. > static\uploads\.gitkeep
+echo. > static\qr_codes\.gitkeep
+echo ✅ Carpetas y archivos .gitkeep creados
+
+REM Crear runtime.txt
+echo python-3.11.6 > runtime.txt
+echo ✅ runtime.txt creado
+
+REM Crear .env.example
+echo SECRET_KEY=tu-clave-secreta-super-segura-aqui > .env.example
+echo DATABASE_URL=postgresql://usuario:password@host:puerto/database >> .env.example
+echo FLASK_ENV=production >> .env.example
+echo ADMIN_PASSWORD=contraseña-admin-segura >> .env.example
+echo ✅ .env.example creado
+
+REM Crear railway.json
+echo { > railway.json
+echo   "$schema": "https://railway.app/railway.schema.json", >> railway.json
+echo   "build": { >> railway.json
+echo     "builder": "NIXPACKS" >> railway.json
+echo   }, >> railway.json
+echo   "deploy": { >> railway.json
+echo     "startCommand": "gunicorn app:app", >> railway.json
+echo     "healthcheckPath": "/login", >> railway.json
+echo     "healthcheckTimeout": 100, >> railway.json
+echo     "restartPolicyType": "ON_FAILURE", >> railway.json
+echo     "restartPolicyMaxRetries": 10 >> railway.json
+echo   } >> railway.json
+echo } >> railway.json
+echo ✅ railway.json creado
+
+REM Verificar requirements.txt actualizado
 if exist "requirements.txt" (
-    echo ✅ requirements.txt ya existe - mantiendo el archivo actual
-    echo Contenido actual:
-    type requirements.txt
+    echo ✅ requirements.txt ya existe - verificando contenido...
+    findstr /C:"gunicorn==23.0.0" requirements.txt >nul
+    if %errorlevel% == 0 (
+        echo ✅ requirements.txt está actualizado para Railway
+    ) else (
+        echo ⚠️ requirements.txt necesita actualizarse manualmente
+    )
 ) else (
-    echo Creando requirements.txt...
-    echo Flask==2.3.2 > requirements.txt
-    echo Flask-SQLAlchemy==3.0.5 >> requirements.txt
-    echo Flask-Login==0.6.2 >> requirements.txt
-    echo Flask-WTF==1.1.1 >> requirements.txt
-    echo qrcode[pil]==7.4.2 >> requirements.txt
-    echo python-dotenv==1.0.0 >> requirements.txt
-    echo Werkzeug==2.3.6 >> requirements.txt
-    echo reportlab==4.0.4 >> requirements.txt
-    echo ✅ Archivo requirements.txt creado
+    echo ❌ requirements.txt no existe - debe crearse manualmente
 )
 
-REM Crear un README básico
+REM Crear README actualizado
 echo # 🍳 Sistema de Inventario y Préstamo de Equipo Menor de Cocina > README.md
 echo. >> README.md
-echo Sistema web desarrollado en Flask para gestionar el inventario, préstamos y devoluciones de equipo menor de cocina. >> README.md
+echo Sistema web desarrollado en Flask para gestionar el inventario, préstamos y devoluciones de equipo menor de cocina en entornos profesionales. >> README.md
 echo. >> README.md
-echo ## 🚀 Instalación Rápida >> README.md
+echo ## 🚀 Instalación Local >> README.md
 echo. >> README.md
 echo 1. Clonar el repositorio >> README.md
 echo 2. Instalar dependencias: `pip install -r requirements.txt` >> README.md
 echo 3. Ejecutar: `python app.py` >> README.md
 echo 4. Abrir navegador en: `http://localhost:5000` >> README.md
+echo. >> README.md
+echo ## 🌐 Deploy en Railway >> README.md
+echo. >> README.md
+echo 1. Fork este repositorio >> README.md
+echo 2. Conectar con Railway ^(railway.app^) >> README.md
+echo 3. Agregar base de datos PostgreSQL >> README.md
+echo 4. Configurar variables de entorno >> README.md
+echo 5. Deploy automático >> README.md
 echo. >> README.md
 echo ## 📱 Características >> README.md
 echo. >> README.md
@@ -130,28 +169,46 @@ echo - ✅ Gestión de inventario con códigos QR >> README.md
 echo - ✅ Sistema de préstamos y devoluciones >> README.md
 echo - ✅ Dashboard responsivo para móviles >> README.md
 echo - ✅ Alertas de stock bajo y préstamos vencidos >> README.md
-echo - ✅ Funciona en red local >> README.md
+echo - ✅ 3 almacenes especializados preconfigurados >> README.md
+echo - ✅ Compatible con PostgreSQL ^(Railway^) >> README.md
+echo. >> README.md
+echo ## 👥 Usuarios de Prueba >> README.md
+echo. >> README.md
+echo - admin / admin123 ^(Administrador^) >> README.md
+echo - supervisor / 123456 ^(Supervisor^) >> README.md
+echo - almacen_compras / 123456 >> README.md
+echo - almacen_calidad / 123456 >> README.md
+echo - almacen_especial / 123456 >> README.md
 
-echo ✅ Archivo README.md creado
+echo ✅ README.md actualizado
 
 echo.
 echo ================================================
-echo   Archivos preparados para GitHub
+echo   Archivos preparados para Railway
 echo ================================================
 echo.
-echo Archivos creados:
-echo ✅ .gitignore
-echo ✅ requirements.txt  
-echo ✅ README.md
+echo Archivos creados/actualizados:
+echo ✅ .gitignore ^(compatible con Railway^)
+echo ✅ runtime.txt
+echo ✅ .env.example
+echo ✅ railway.json
+echo ✅ static/uploads/.gitkeep
+echo ✅ static/qr_codes/.gitkeep
+echo ✅ README.md ^(con instrucciones de Railway^)
 echo.
-echo SIGUIENTE PASO:
-echo 1. Ve a GitHub.com e inicia sesión
-echo 2. Crea un nuevo repositorio llamado: sistema-inventario-cocina
-echo 3. Copia la URL del repositorio
-echo 4. Ejecuta el script: subir_a_github.bat
-echo.
-echo ¿Listo para continuar? Presiona cualquier tecla...
-pause >nul
+
+REM Limpiar archivos innecesarios antes de subir
+if exist "inventario.db" (
+    echo Eliminando base de datos local...
+    del inventario.db
+    echo ✅ inventario.db eliminado
+)
+
+if exist "__pycache__" (
+    echo Eliminando caché de Python...
+    rmdir /s /q __pycache__
+    echo ✅ __pycache__ eliminado
+)
 
 echo.
 echo ================================================
@@ -171,8 +228,8 @@ git add .
 echo ✅ Archivos agregados
 
 echo.
-echo Creando primer commit...
-git commit -m "Primera versión - Sistema de Inventario de Equipo de Cocina"
+echo Creando commit para Railway...
+git commit -m "Preparar para Railway: PostgreSQL + Gunicorn + Archivos de configuración"
 echo ✅ Commit creado
 
 echo.
@@ -183,13 +240,13 @@ echo.
 echo IMPORTANTE: Necesitas crear el repositorio en GitHub primero
 echo.
 echo 1. Ve a: https://github.com
-echo 2. Haz clic en el botón verde "New" (nuevo repositorio)
+echo 2. Haz clic en el botón verde "New" ^(nuevo repositorio^)
 echo 3. Nombre del repositorio: sistema-inventario-cocina
 echo 4. Descripción: Sistema de inventario y préstamo de equipo menor de cocina
 echo 5. Selecciona "Public"
-echo 6. NO marques "Add a README file" (ya tenemos uno)
+echo 6. NO marques "Add a README file" ^(ya tenemos uno^)
 echo 7. Haz clic en "Create repository"
-echo 8. Copia la URL que aparece (ejemplo: https://github.com/usuario/sistema-inventario-cocina.git)
+echo 8. Copia la URL que aparece
 echo.
 set /p repo_url="Pega aquí la URL de tu repositorio de GitHub: "
 
@@ -213,7 +270,6 @@ echo ✅ Rama principal configurada
 
 echo.
 echo Subiendo archivos a GitHub...
-echo (Se te pedirán tus credenciales de GitHub)
 git push -u origin main
 
 if %errorlevel% == 0 (
@@ -225,25 +281,24 @@ if %errorlevel% == 0 (
     echo Tu proyecto ya está disponible en:
     echo %repo_url%
     echo.
-    echo Próximos pasos:
-    echo 1. Configurar el sistema para red local
-    echo 2. Ejecutar: configurar_firewall.bat
-    echo 3. Iniciar el sistema: iniciar_sistema.bat
+    echo 🚀 PRÓXIMOS PASOS PARA RAILWAY:
+    echo 1. Ve a: https://railway.app
+    echo 2. Sign up with GitHub
+    echo 3. New Project ^-^> Deploy from GitHub repo
+    echo 4. Seleccionar tu repositorio
+    echo 5. Agregar PostgreSQL ^(+ New Service ^-^> Database^)
+    echo 6. Configurar variables de entorno:
+    echo    - SECRET_KEY=tu-clave-segura
+    echo    - FLASK_ENV=production
+    echo    - ADMIN_PASSWORD=contraseña-admin
+    echo 7. Deploy automático
+    echo.
+    echo ✅ Tu app estará en: https://tu-proyecto.railway.app
     echo.
 ) else (
     echo.
     echo ❌ ERROR: No se pudo subir a GitHub.
-    echo.
-    echo Posibles causas:
-    echo 1. URL del repositorio incorrecta
-    echo 2. Credenciales de GitHub incorrectas
-    echo 3. Problemas de conexión a Internet
-    echo 4. El repositorio ya existe y tiene contenido
-    echo.
-    echo Soluciones:
-    echo 1. Verifica la URL del repositorio
-    echo 2. Asegúrate de tener acceso al repositorio
-    echo 3. Ejecuta: git push -f origin main (forzar subida)
+    echo Verifica la URL y tus credenciales.
     echo.
 )
 
