@@ -17,33 +17,10 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 # Configuración de la aplicación
 app = Flask(__name__)
 
-
 # Hacer datetime disponible en todos los templates
 @app.context_processor
 def inject_datetime():
     return {'datetime': datetime}
-
-# Configuración de seguridad
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'clave-super-secreta-feedbit-2024!')
-
-# Configuración de base de datos para Railway
-
-# 🔧 CONFIGURACIÓN PARA RAILWAY Y POSTGRESQL
-if os.environ.get('RAILWAY_ENVIRONMENT'):
-    DATABASE_URL = os.environ.get('DATABASE_URL')
-    if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
-        DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
-    app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL or 'postgresql://localhost/inventario'
-    ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
-    print(f"🚀 MODO RAILWAY DETECTADO")
-    print(f"📊 DATABASE_URL: {DATABASE_URL[:50]}..." if DATABASE_URL else "❌ DATABASE_URL no encontrada")
-    print(f"🔑 SECRET_KEY configurado: {'✅' if app.config['SECRET_KEY'] else '❌'}")
-else:
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///inventario.db'
-    ADMIN_PASSWORD = 'admin123'
-    print("🏠 MODO DESARROLLO LOCAL")
-    # Desarrollo local - SQLite
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///inventario.db'
 
 # 🔧 CONFIGURACIÓN MEJORADA PARA RAILWAY Y POSTGRESQL
 def configurar_database():
@@ -68,10 +45,25 @@ def configurar_database():
         app.config['ADMIN_PASSWORD'] = 'admin123'
         print("🏠 MODO DESARROLLO LOCAL - SQLite")
 
+# Configurar base de datos
+configurar_database()
 
-# Crear carpetas si no existen
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-os.makedirs(app.config['QR_FOLDER'], exist_ok=True)
+# Configuración de seguridad y carpetas
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'clave-super-secreta-feedbit-2024!')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# 🔧 CONFIGURAR CARPETAS (ARREGLADO PARA RAILWAY)
+app.config['UPLOAD_FOLDER'] = 'static/uploads'
+app.config['QR_FOLDER'] = 'static/qr_codes'
+
+# Crear carpetas si no existen - CON MANEJO DE ERRORES
+try:
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    os.makedirs(app.config['QR_FOLDER'], exist_ok=True)
+    print("✅ Carpetas creadas/verificadas")
+except Exception as e:
+    print(f"⚠️ Error creando carpetas: {e}")
+    # En Railway, las carpetas pueden no ser necesarias al inicio
 
 # Inicializar extensiones
 from models import db, Usuario, TipoEquipo, Prestamo, DetallePrestamo, Ubicacion, Categoria
@@ -99,11 +91,9 @@ AREAS_OPERATIVAS = [
     'Ventas'
 ]
 
-
 @login_manager.user_loader
 def load_user(user_id):
     return Usuario.query.get(int(user_id))
-
 
 # Función auxiliar para generar QR
 def generar_qr(data):
@@ -117,6 +107,7 @@ def generar_qr(data):
     buffered.seek(0)
 
     return base64.b64encode(buffered.getvalue()).decode()
+
 
 
 # Función para generar PDF completo
